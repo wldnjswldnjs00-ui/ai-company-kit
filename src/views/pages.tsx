@@ -424,13 +424,13 @@ export const KnowledgePage: FC<{ items: Knowledge[]; departments: Department[]; 
     </form>
     {playbooks && (
       <p class="card muted">
-        📘 대응 매뉴얼은 "이런 일이 생기면 이렇게 한다"를 미리 적어 둔 것입니다. 부서마다 일주일에 한 번(14시) 대비 훈련을 하며 늘어나고, 비슷한 상황이 실제로 생기면 부서가 먼저 꺼내 봅니다. 제목을 누르면 내용이 펼쳐집니다.
+        📘 대응 매뉴얼은 "이런 일이 생기면 이렇게 한다"를 미리 적어 둔 것입니다. 부서마다 매일 정해진 시간(11시부터 한 시간에 한 부서씩)에 대비 훈련을 하며 늘어나고, 비슷한 상황이 실제로 생기면 부서가 먼저 꺼내 봅니다. 제목을 누르면 내용이 펼쳐집니다.
       </p>
     )}
     {playbooks && (
       <form method="post" action="/knowledge/drill" class="row">
         <button>🏋️ 지금 전 부서 대비 훈련 시작</button>
-        <span class="muted">7개 부서가 매뉴얼을 2~3개씩 만듭니다. 무료 두뇌 한도에 따라 몇 시간에 걸쳐 끝날 수 있습니다.</span>
+        <span class="muted">모든 부서가 매뉴얼을 2~3개씩 만듭니다. 무료 두뇌 한도에 따라 몇 시간에 걸쳐 끝날 수 있습니다.</span>
       </form>
     )}
     <form class="card" method="post" action="/knowledge" style="margin-top:12px">
