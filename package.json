@@ -1,0 +1,25 @@
+{
+  "name": "ai-company-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
+    "@cloudflare/puppeteer": "^1.4.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "hono": "^4.13.10",
+    "marked": "^18.0.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260928.1",
+    "typescript": "^5",
+    "vitest": "^5.0.2",
+    "wrangler": "^4.143.0"
+  }
+}

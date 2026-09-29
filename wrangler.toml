@@ -1,0 +1,31 @@
+name = "ai-company"
+main = "src/index.tsx"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare 대시보드에서 넣은 변수를 배포 때마다 지우지 않는다.
+# (SUPABASE_URL, SUPABASE_SECRET_KEY, GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, DASHBOARD_PASSWORD 는 대시보드에서 넣는다.)
+keep_vars = true
+
+# 5분마다 회사 전체의 심장이 뛴다: 정기 업무 → 업무 처리 → 점검.
+[triggers]
+crons = ["*/5 * * * *"]
+
+# 두 번째 무료 두뇌 (Gemini 가 붐빌 때만 사용). 키·가입 불필요, 무료 플랜 일일 할당 안에서 동작.
+[ai]
+binding = "AI"
+
+# 웹사이트순찰팀이 쓰는 진짜 브라우저. 무료 플랜: 하루 10분, 동시에 3개.
+[browser]
+binding = "BROWSER"
+
+[observability]
+enabled = true
+
+# 코드와 함께 관리하는 기본값. 바꾸려면 이 파일을 고쳐 배포한다.
+[vars]
+GEMINI_MODEL = "gemini-flash-latest"
+GEMINI_FALLBACK_MODEL = "gemini-flash-lite-latest"
+BRAIN_DAILY_LIMIT = "200"
+WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+WORKERS_AI_DAILY_LIMIT = "80"
