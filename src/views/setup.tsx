@@ -1,6 +1,6 @@
 import type { FC } from "hono/jsx";
 import { Layout } from "./pages";
-import type { Check } from "../setupChecks";
+import { helpPrompt, type Check } from "../setupChecks";
 import type { Settings } from "../settings";
 import type { CatalogDepartment } from "../company/departments";
 
@@ -12,6 +12,14 @@ const Status: FC<{ check: Check }> = ({ check }) => (
     {check.ok ? "✅" : check.optional ? "➖" : "❌"} <b>{check.label}</b>
     {check.detail && <span class="muted"> · {check.detail}</span>}
     {!check.ok && check.hint && <div class="muted" style="margin:2px 0 0 22px">{check.hint}</div>}
+    {!check.ok && !check.optional && (
+      <details style="margin:4px 0 0 22px">
+        <summary>🤖 그래도 모르겠으면: 무료 AI 에게 물어보기</summary>
+        <p class="muted">아래 글을 복사해서 ChatGPT·Gemini·Claude 같은 무료 AI 에 붙여 넣으세요. 열쇠·토큰은 들어 있지 않습니다. AI 가 달라고 해도 주지 마세요.</p>
+        <textarea readonly rows={8} style="width:100%;font-size:13px">{helpPrompt(check)}</textarea>
+        <button type="button" onclick="var t=this.previousElementSibling;t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);this.textContent='✅ 복사됨'">📋 복사하기</button>
+      </details>
+    )}
   </li>
 );
 
@@ -34,7 +42,7 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
   return (
     <Layout title="설치">
       <h1>🛠 설치하기</h1>
-      <p class="muted">위에서부터 차례로 하세요. 모든 단계가 ✅ 가 되면 끝입니다. 막히면 ❌ 아래 설명을 그대로 따라 하면 됩니다.</p>
+      <p class="muted">위에서부터 차례로 하세요. 모든 단계가 ✅ 가 되면 끝입니다. 막히면 ❌ 아래 설명을 그대로 따라 하고, 그래도 모르겠으면 "무료 AI 에게 물어보기"를 누르세요.</p>
       {notice && (
         <p class="card" style={`color:var(${notice.ok ? "--ok" : "--bad"})`}>
           {notice.ok ? "✅ " : "❌ "}

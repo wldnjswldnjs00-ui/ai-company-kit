@@ -117,3 +117,15 @@ describe("법무팀·미래전략팀 search before answering", () => {
     expect(NO_SEARCH_NOTICE).toContain("확인이 필요");
   });
 });
+
+describe("setup help prompt", () => {
+  it("includes the failing step and its hint, never the pairing code", async () => {
+    const { helpPrompt } = await import("../src/setupChecks");
+    const p = helpPrompt({ key: "gemini", label: "두뇌 열쇠 (GEMINI_API_KEY)", hint: "aistudio.google.com 에서 만드세요." });
+    expect(p).toContain("두뇌 열쇠 (GEMINI_API_KEY)");
+    expect(p).toContain("aistudio.google.com");
+    expect(p).toContain("붙여 넣지 않을게");
+    const ceo = helpPrompt({ key: "ceo", label: "CEO 채팅 연결", hint: "/start 482913 를 보내세요" });
+    expect(ceo).not.toContain("482913");
+  });
+});

@@ -148,3 +148,29 @@ export async function setupChecks(env: Env): Promise<Check[]> {
   });
   return checks;
 }
+
+// A ready-to-paste question for any free AI (ChatGPT, Gemini, Claude…), so a
+// buyer stuck on a ❌ can get step-by-step help without asking anyone.
+// Only the check's label and hint go in — never keys, tokens or codes.
+export function helpPrompt(check: Pick<Check, "key" | "label" | "hint">): string {
+  const hint = check.key === "ceo" ? "텔레그램에서 내 봇을 열고, 설치 화면에 나온 /start 숫자 6자리를 보낸 뒤 새로고침하라고 한다." : (check.hint ?? "");
+  return `나는 코딩을 모르는 사장이다. "AI 본사"라는 프로그램을 설치하는 중인데 한 단계에서 막혔다. 초등학생도 따라 할 수 있게, 화면에서 어디를 누르는지 순서대로 알려 줘.
+
+[구성]
+- Cloudflare Workers 에 올린 웹 프로그램이다. GitHub 저장소에서 Cloudflare 가 자동으로 가져가 배포한다.
+- 데이터베이스는 Supabase, AI 는 Google Gemini(API 키), 알림은 텔레그램 봇이다.
+- 비밀 값(열쇠·토큰)은 Cloudflare → Workers & Pages → 내 Worker → Settings → Variables and Secrets 에 넣는다.
+- 값을 바꾼 뒤 1분쯤 기다렸다가 설치 화면을 새로고침하면 다시 확인된다.
+
+[설치 화면에 나온 ❌]
+${check.label}
+
+[설치 화면의 안내]
+${hint}
+
+부탁:
+1. 이 문제가 생기는 흔한 이유를 가능성 높은 순서로 알려 줘.
+2. 각각 확인하고 고치는 방법을 한 단계씩 알려 줘.
+3. 버튼 이름은 영어 화면 그대로 적어 줘.
+4. 내 열쇠·토큰·비밀번호를 보여 달라고 하지 마. 나도 여기에 붙여 넣지 않을게.`;
+}
