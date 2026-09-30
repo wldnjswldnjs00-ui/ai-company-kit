@@ -28,7 +28,7 @@ header.top{display:none}
   .shell{display:block}.side{display:none}
   header.top{display:block;position:sticky;top:0;z-index:2;background:var(--side);color:#fff;padding:12px 16px 0}
   header.top .brand{padding:0 0 10px}
-  header.top nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}header.top nav::-webkit-scrollbar{display:none}
+  header.top nav{display:flex;align-items:center;gap:4px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}header.top nav::-webkit-scrollbar{display:none}
   header.top nav a{flex:none;padding:6px 12px;border-radius:999px;text-decoration:none;font-size:14px;color:var(--side-ink)}header.top nav a.on{background:#fff;color:#111}
   main{padding:18px 16px 48px}
 }
