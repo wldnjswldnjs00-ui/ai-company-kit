@@ -14,6 +14,7 @@ export type Company = {
   stage: string; // 지금 단계 (예: 준비 중, 출시 1년 차)
   rules: string; // 반드시 지킬 것 (하지 않는 일, 금지 사항, 말투 등)
   country: string; // 주로 활동하는 나라
+  benchmarks?: string; // 배우고 싶은 회사들 (벤치마킹), 쉼표나 줄바꿈으로 구분
 };
 
 export const DEFAULT_COMPANY: Company = {

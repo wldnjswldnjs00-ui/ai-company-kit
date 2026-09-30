@@ -3,38 +3,79 @@ import { raw } from "hono/html";
 import type { Department, Task, TaskEvent, Proposal } from "../db";
 import type { Knowledge, CompanyProfile } from "../company/memory";
 import { currentCompany } from "../company/charter";
+import { currentBrand, brandUrl } from "../brand";
+import { KIT_VERSION } from "../version";
 import { jobFor } from "../company/departments";
 import type { ScoreRow } from "../company/scoreboard";
 import { isPlaybook, playbookTitle } from "../company/playbooks";
 
 const CSS = `
-:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e4e2dc;--accent:#5b4bdb;--ok:#1f8a4c;--warn:#b7791f;--bad:#c0392b}
-@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1d1d21;--ink:#ececef;--muted:#9a9aa3;--line:#2c2c33;--accent:#8f82ff;--ok:#4cc083;--warn:#e0a84a;--bad:#ef6b5b}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
-a{color:inherit}header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:12px;align-items:center;z-index:1}
-header b{font-size:17px}.brand{display:flex;align-items:center;gap:8px;text-decoration:none}.brand img{height:18px;width:auto;display:block}header nav{margin-left:auto;display:flex;gap:12px;font-size:14px;flex-wrap:wrap;justify-content:flex-end}
-main{max-width:980px;margin:0 auto;padding:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
-.card h3{margin:0 0 4px;font-size:16px}.muted{color:var(--muted);font-size:13px}
-.stats{display:flex;gap:10px;margin-top:10px;font-size:13px}.stats span{background:var(--bg);border-radius:8px;padding:2px 8px}
-.pill{display:inline-block;font-size:12px;border-radius:999px;padding:1px 8px;border:1px solid var(--line)}
-.s-pending{color:var(--warn);border-color:var(--warn)}.s-approved{color:var(--ok);border-color:var(--ok)}.s-rejected{color:var(--bad);border-color:var(--bad)}.s-held{color:var(--muted)}.s-queued{color:var(--muted)}.s-working{color:var(--warn);border-color:var(--warn)}.s-done{color:var(--ok);border-color:var(--ok)}.s-failed{color:var(--bad);border-color:var(--bad)}.s-cancelled{color:var(--muted)}
-ul.tasks{list-style:none;margin:0;padding:0}ul.tasks li{padding:10px 0;border-bottom:1px solid var(--line)}ul.tasks li:last-child{border:0}
-ul.tasks a{text-decoration:none;font-weight:600}
-form.order textarea,form textarea{width:100%;min-height:90px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);color:var(--ink);font:inherit}
-select,input[type=password]{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit}
-button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer}
+:root{--bg:#f3f3f1;--card:#fff;--ink:#17171a;--muted:#6f6f76;--line:#ebebe8;--accent:#f0611a;--accent-soft:#fdeee5;--btn:#17171a;--btn-ink:#fff;--side:#161618;--side-ink:#d9d9de;--side-on:#2a2a2e;--ok:#1f8a4c;--warn:#c47a12;--bad:#d13b2b;--shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04)}
+@media (prefers-color-scheme:dark){:root{--bg:#0e0e10;--card:#19191c;--ink:#ececef;--muted:#9a9aa3;--line:#27272b;--accent:#ff7a38;--accent-soft:#3a2216;--btn:#ececef;--btn-ink:#111;--side:#08080a;--side-ink:#c9c9d0;--side-on:#1f1f23;--ok:#4cc083;--warn:#e0a84a;--bad:#ef6b5b;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Noto Sans KR",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.shell{display:flex;min-height:100vh}
+.side{width:232px;flex:none;background:var(--side);color:var(--side-ink);padding:22px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:#fff;padding:2px 10px 26px}
+.side nav{display:flex;flex-direction:column;gap:4px}
+.side nav a{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:12px;text-decoration:none;font-size:14.5px;color:var(--side-ink);border:1px solid transparent}
+.side nav a:hover{background:var(--side-on)}.side nav a.on{background:var(--side-on);border-color:#3a3a40;color:#fff}
+.side svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.side .bottom{margin-top:auto}.side .bottom button{display:flex;align-items:center;gap:12px;width:100%;background:transparent;color:var(--side-ink);padding:9px 12px;font-weight:500;border-radius:12px}.side .bottom button:hover{background:var(--side-on)}
+main{flex:1;min-width:0;max-width:1180px;padding:28px 32px 60px}
+header.top{display:none}
+@media (max-width:860px){
+  .shell{display:block}.side{display:none}
+  header.top{display:block;position:sticky;top:0;z-index:2;background:var(--side);color:#fff;padding:12px 16px 0}
+  header.top .brand{padding:0 0 10px}
+  header.top nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}header.top nav::-webkit-scrollbar{display:none}
+  header.top nav a{flex:none;padding:6px 12px;border-radius:999px;text-decoration:none;font-size:14px;color:var(--side-ink)}header.top nav a.on{background:#fff;color:#111}
+  main{padding:18px 16px 48px}
+}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 6px;font-size:16px;font-weight:650}.muted{color:var(--muted);font-size:13px}
+a.card{transition:border-color .15s}a.card:hover{border-color:#d4d4cf}
+.kpis{margin-bottom:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;padding:0;overflow:hidden}
+.kpis>*{display:block;padding:16px 20px;border-right:1px solid var(--line)}.kpis>*:last-child{border:0}
+.kpis .n{font-size:32px;font-weight:650;letter-spacing:-.02em;line-height:1.2;margin-top:4px}.kpis .n small{font-size:14px;color:var(--muted);font-weight:500}
+.kpis a{text-decoration:none}.kpis .hot .n{color:var(--accent)}
+.stats{display:flex;gap:8px;margin-top:12px;font-size:12.5px;flex-wrap:wrap}.stats span{background:var(--bg);border-radius:999px;padding:3px 10px}
+.pill{display:inline-block;font-size:12px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);font-weight:500}
+.s-pending{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}.s-approved{color:var(--ok);border-color:var(--ok)}.s-rejected{color:var(--bad);border-color:var(--bad)}.s-held{color:var(--muted)}.s-queued{color:var(--muted)}.s-working{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}.s-done{color:var(--ok);border-color:var(--ok)}.s-failed{color:var(--bad);border-color:var(--bad)}.s-cancelled{color:var(--muted)}
+ul.tasks{list-style:none;margin:0;padding:0}ul.tasks li{padding:12px 0;border-bottom:1px solid var(--line)}ul.tasks li:last-child{border:0}
+ul.tasks a{text-decoration:none;font-weight:600}ul.tasks a:hover{color:var(--accent)}
+form.order textarea,form textarea{width:100%;min-height:90px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg);color:var(--ink);font:inherit}
+select{max-width:100%}
+select,input[type=password],input[type=text],input:not([type]){border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--bg);color:var(--ink);font:inherit}
+textarea:focus,select:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px}
+button{background:var(--btn);color:var(--btn-ink);border:0;border-radius:999px;padding:9px 18px;font:inherit;font-weight:600;cursor:pointer}
 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
-.report{overflow-wrap:anywhere}.report h2{font-size:17px;margin:18px 0 6px}.report h3{font-size:15px}
-.report pre{white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:8px}
-.report table{border-collapse:collapse;display:block;overflow-x:auto}.report td,.report th{border:1px solid var(--line);padding:4px 8px}
-h1{font-size:22px;margin:4px 0 12px}h2{font-size:17px;margin:22px 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.report{overflow-wrap:anywhere}.report h2{font-size:17px;margin:20px 0 6px}.report h3{font-size:15px}
+.report pre{white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:10px}
+.report table{border-collapse:collapse;display:block;overflow-x:auto}.report td,.report th{border:1px solid var(--line);padding:5px 9px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 16px}h2{font-size:18px;font-weight:650;margin:28px 0 12px}
 .bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:4px}.bar>i{display:block;height:100%;background:var(--accent)}
-table.score{width:100%;border-collapse:collapse;font-size:14px}table.score th,table.score td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}table.score th:first-child,table.score td:first-child{text-align:left}
+table.score{width:100%;border-collapse:collapse;font-size:14px}table.score th{color:var(--muted);font-weight:500;font-size:13px}table.score th,table.score td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}table.score th:first-child,table.score td:first-child{text-align:left}
 .scroll{overflow-x:auto}
 .timeline{font-size:13px}.timeline div{padding:4px 0;border-left:2px solid var(--line);padding-left:10px}
+.notice{display:block;text-decoration:none;border-color:var(--accent);background:var(--accent-soft);margin-bottom:14px}
+
+.brand .text{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.01em}
+.brand img{display:block;max-height:28px;max-width:170px;width:auto;height:auto;border-radius:8px}
+body:not(.side-white) .brand img.logo-l{background:#fff;padding:4px 8px}
+@media (prefers-color-scheme:dark){.brand img.logo-l{background:#fff;padding:4px 8px}}
+.side .ver{font-size:11.5px;opacity:.55;padding:10px 12px 0}
+body.side-white .side{border-right:1px solid var(--line)}
+@media (prefers-color-scheme:light){
+  body.side-white{--side:#fff;--side-ink:#3a3a40;--side-on:#f2f2ef}
+  body.side-white .side nav a.on{border-color:#e2e2dd;color:#111}
+  body.side-white .brand,body.side-white .brand .text{color:#111}
+  body.side-white header.top nav a.on{background:#111;color:#fff}
+  body.side-white header.top{border-bottom:1px solid var(--line)}
+  body.side-white .brand img.logo-d{background:#111;padding:4px 8px}
+}
 `;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,41 +96,118 @@ export function kstTime(iso: string | null): string {
   return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 }
 
+// Line icons (stroke only, 24×24).
+const ICONS: Record<string, string> = {
+  home: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+  list: '<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  memory: '<path d="M12 5a3 3 0 0 0-5.9.8A3 3 0 0 0 4 11a3 3 0 0 0 1.5 5.6A3 3 0 0 0 12 19z"/><path d="M12 5a3 3 0 0 1 5.9.8A3 3 0 0 1 20 11a3 3 0 0 1-1.5 5.6A3 3 0 0 1 12 19z"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+};
+const Icon: FC<{ name: string }> = ({ name }) => <svg viewBox="0 0 24 24" aria-hidden="true">{raw(ICONS[name] ?? "")}</svg>;
+
+const NAV: [string, string, string][] = [
+  ["/", "조직도", "home"],
+  ["/proposals", "제안함", "inbox"],
+  ["/scoreboard", "성과", "chart"],
+  ["/tasks", "업무", "list"],
+  ["/knowledge", "기억", "memory"],
+  ["/knowledge?playbooks=1", "매뉴얼", "book"],
+  ["/vision", "비전", "target"],
+  ["/setup", "설치", "link"],
+];
+
+// Marks the menu item for the current page (department and report pages
+// belong to 조직도 and 업무).
+const ACTIVE_NAV = `(function(){var p=location.pathname,q=location.search,h=p.indexOf('/d/')===0?'/':p.indexOf('/t/')===0?'/tasks':p+(p==='/knowledge'&&q.indexOf('playbooks=1')>=0?'?playbooks=1':'');document.querySelectorAll('[data-nav]').forEach(function(a){if(a.getAttribute('href')===h)a.classList.add('on')})})()`;
+
+// The company's logo, or its name when no logo was uploaded. A logo made
+// for light backgrounds gets a white chip wherever the menu is dark, and
+// the other way round (see .logo-l / .logo-d in CSS).
+const BrandMark: FC = () => {
+  const b = currentBrand();
+  const light = brandUrl("logoLight", b);
+  const dark = brandUrl("logoDark", b);
+  const name = currentCompany().name;
+  if (!light && !dark) return <span class="text">{name}</span>;
+  if (b.theme === "black") return dark ? <img src={dark} alt={name} class="logo-d" /> : <img src={light} alt={name} class="logo-l" />;
+  if (light && dark)
+    return (
+      <picture>
+        <source srcset={dark} media="(prefers-color-scheme: dark)" />
+        <img src={light} alt={name} />
+      </picture>
+    );
+  return light ? <img src={light} alt={name} class="logo-l" /> : <img src={dark} alt={name} class="logo-d" />;
+};
+
+const Brand: FC = () => (
+  <a href="/" class="brand" aria-label="본사 홈">
+    <BrandMark />
+  </a>
+);
+
 export const Layout: FC<PropsWithChildren<{ title: string; authed?: boolean }>> = ({ title, authed = true, children }) => (
   <html lang="ko">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>{title} · {currentCompany().name} AI 본사</title>
+      <title>
+        {title} · {currentCompany().name} 본사
+      </title>
       <meta name="apple-mobile-web-app-title" content={`${currentCompany().name} 본사`} />
-      <meta name="theme-color" content="#000000" />
-      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      <link rel="icon" type="image/png" href="/apple-touch-icon.png" />
+      <meta name="theme-color" content={currentBrand().theme === "white" ? "#ffffff" : "#161618"} />
+      <link rel="apple-touch-icon" href={brandUrl("icon") ?? "/apple-touch-icon.png"} />
+      <link rel="icon" href={brandUrl("icon") ?? "/apple-touch-icon.png"} />
       <link rel="manifest" href="/manifest.webmanifest" />
       <style>{raw(CSS)}</style>
     </head>
-    <body>
-      <header>
-        <a href="/" class="brand" aria-label="본사 홈">
-          <b>🏢 {currentCompany().name} AI 본사</b>
-        </a>
-        {authed && (
-          <nav>
-            <a href="/">조직도</a>
-            <a href="/proposals">제안함</a>
-            <a href="/scoreboard">성과</a>
-            <a href="/tasks">업무</a>
-            <a href="/knowledge">기억</a>
-            <a href="/knowledge?playbooks=1">매뉴얼</a>
-            <a href="/vision">비전</a>
-            <a href="/setup">설치</a>
-            <form method="post" action="/logout" style="display:inline">
-              <button class="ghost" style="padding:2px 10px">로그아웃</button>
-            </form>
-          </nav>
-        )}
-      </header>
-      <main>{children}</main>
+    <body class={currentBrand().theme === "white" ? "side-white" : ""}>
+      <div class="shell">
+        <aside class="side">
+          <Brand />
+          {authed && (
+            <>
+              <nav>
+                {NAV.map(([href, label, icon]) => (
+                  <a href={href} data-nav>
+                    <Icon name={icon} />
+                    {label}
+                  </a>
+                ))}
+              </nav>
+              <form method="post" action="/logout" class="bottom">
+                <button>
+                  <Icon name="logout" />
+                  로그아웃
+                </button>
+                <div class="ver">AI 본사 {KIT_VERSION}</div>
+              </form>
+            </>
+          )}
+        </aside>
+        <header class="top">
+          <Brand />
+          {authed && (
+            <nav>
+              {NAV.map(([href, label]) => (
+                <a href={href} data-nav>
+                  {label}
+                </a>
+              ))}
+              <form method="post" action="/logout" style="flex:none">
+                <button class="ghost" style="color:var(--side-ink);border-color:var(--line);padding:5px 12px">로그아웃</button>
+              </form>
+            </nav>
+          )}
+        </header>
+        <main>{children}</main>
+      </div>
+      {authed && <script>{raw(ACTIVE_NAV)}</script>}
     </body>
   </html>
 );
@@ -151,16 +269,39 @@ export const HomePage: FC<{
 }> = (p) => (
   <Layout title="조직도">
     {p.paused && <p class="card" style="color:var(--bad)">⛔ AGENTS_ENABLED=false — 모든 부서가 정지 중입니다.</p>}
+    <h1>오늘의 본사</h1>
     {p.pendingProposals > 0 && (
-      <a class="card" href="/proposals" style="display:block;margin-bottom:12px;text-decoration:none;border-color:var(--warn)">
+      <a class="card notice" href="/proposals">
         🚀 <b>결재 대기 제안 {p.pendingProposals}건</b> — 부서들이 스스로 찾은 개선안이 기다리고 있습니다 →
       </a>
     )}
+    <div class="card kpis">
+      <div>
+        <div class="muted">오늘 완료</div>
+        <div class="n">{Object.values(p.stats).reduce((n, s) => n + s.doneToday, 0)}</div>
+      </div>
+      <div>
+        <div class="muted">진행 중</div>
+        <div class="n">{Object.values(p.stats).reduce((n, s) => n + s.working + s.queued, 0)}</div>
+      </div>
+      <a href="/proposals" class={p.pendingProposals ? "hot" : ""}>
+        <div class="muted">결재 대기</div>
+        <div class="n">{p.pendingProposals}</div>
+      </a>
+      <a href="/knowledge">
+        <div class="muted">회사의 기억</div>
+        <div class="n">{p.memoryCount}</div>
+      </a>
+      <div>
+        <div class="muted">두뇌 사용 (무료 한도)</div>
+        <div class="n">
+          {p.usage}
+          <small> / {p.limit}</small>
+        </div>
+      </div>
+    </div>
     <OrderForm departments={p.departments} />
     <h2>조직도</h2>
-    <p class="muted">
-      오늘 두뇌 사용 {p.usage} / {p.limit}회 (무료 한도) · 🧠 회사의 기억 {p.memoryCount}개
-    </p>
     <div class="grid">
       {p.departments.map((d) => {
         const s = p.stats[d.id] ?? { queued: 0, working: 0, doneToday: 0 };

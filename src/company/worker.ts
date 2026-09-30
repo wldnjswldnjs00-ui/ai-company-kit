@@ -15,6 +15,7 @@ import { followupButtons } from "./followup";
 import { patrol, formatChecks, hasHardProblems, patrolInstruction, PATROL_TITLE_PREFIX } from "./patrol";
 import { parseMeetingInstruction, opinionInstruction, parseOpinion, rebuttalTargets, rebuttalInstruction, formatOpinions, chairInstruction, type Opinion, type Rebuttal } from "./meeting";
 import { searchesWeb } from "./departments";
+import { isBenchmark } from "./benchmarks";
 import { LEGAL_WATCH_TITLE, NO_CHANGE_MARK } from "./routines";
 
 // 개발 요청서: sent as its own message so the CEO can copy it straight into
@@ -210,7 +211,7 @@ async function work(env: Env, client: SupabaseClient, task: Task, departments: D
     patrolClean = !hasHardProblems(checks);
   }
 
-  const text = await think(env, client, { system, prompt, search: searchesWeb(dept.id), images });
+  const text = await think(env, client, { system, prompt, search: searchesWeb(dept.id) || isBenchmark(task.title), images });
   let { summary, body } = splitReport(text);
   await logEvent(client, task.id, "model", `사용 모델: ${lastModelUsed() ?? "알 수 없음"}`);
 
@@ -241,7 +242,7 @@ async function work(env: Env, client: SupabaseClient, task: Task, departments: D
     // A clean scheduled patrol: no message (one the CEO asked for always reports).
   } else if (task.title === LEGAL_WATCH_TITLE && summary.includes(NO_CHANGE_MARK)) {
     // Nothing new in the law this morning: no message.
-  } else if (task.title.startsWith(DRILL_TITLE_PREFIX)) {
+  } else if (task.title.startsWith(DRILL_TITLE_PREFIX) || (task.source === "schedule" && isBenchmark(task.title))) {
     // Daily drills would be seven files a day; they're summed up in the
     // evening report and kept on the 매뉴얼 page instead.
   } else {

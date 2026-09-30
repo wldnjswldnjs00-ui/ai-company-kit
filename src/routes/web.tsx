@@ -17,6 +17,7 @@ import { processQueue } from "../company/worker";
 import { followUp } from "../company/followup";
 import { kstNow, drillsFor, DRILL_TITLE_PREFIX } from "../company/routines";
 import { loadSettings, saveSetting } from "../settings";
+import { BRAND_KINDS, BRAND_ROW_PREFIX, currentBrand, setBrand, toDataUrl, fromDataUrl, loadBrandImage, type BrandKind } from "../brand";
 import { CATALOG, installDepartments } from "../company/departments";
 import { DEFAULT_COMPANY, type Company } from "../company/charter";
 import { setupChecks } from "../setupChecks";
@@ -367,6 +368,15 @@ web.post("/proposals/:id", async (c) => {
 });
 
 // 설치 화면: one page, five steps, each with a ✅/❌ and what to fix.
+// Logo images are public (they appear on the login page and home screen).
+web.get("/brand/:kind", async (c) => {
+  const kind = c.req.param("kind") as BrandKind;
+  if (!BRAND_KINDS.includes(kind) || !c.env.DB_OK) return c.notFound();
+  const image = fromDataUrl((await loadBrandImage(db(c.env), kind)) ?? "");
+  if (!image) return c.notFound();
+  return new Response(image.bytes, { headers: { "Content-Type": image.type, "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" } });
+});
+
 async function renderSetup(c: { env: Env; req: { url: string }; html: (h: unknown) => Response | Promise<Response> }, notice?: { ok: boolean; message: string }) {
   const checks = await setupChecks(c.env);
   const dbReady = !!c.env.DB_OK;
@@ -388,7 +398,7 @@ web.get("/setup", async (c) => {
 web.post("/setup/company", async (c) => {
   const form = await c.req.parseBody();
   const text = (k: string, max = 1000) => String(form[k] ?? "").trim().slice(0, max);
-  const company: Company = { ...DEFAULT_COMPANY, name: text("name", 80) || DEFAULT_COMPANY.name, business: text("business"), customers: text("customers"), stage: text("stage"), rules: text("rules", 3000), country: text("country", 40) || "대한민국" };
+  const company: Company = { ...DEFAULT_COMPANY, name: text("name", 80) || DEFAULT_COMPANY.name, business: text("business"), customers: text("customers"), stage: text("stage"), rules: text("rules", 3000), country: text("country", 40) || "대한민국", benchmarks: text("benchmarks", 1000) };
   if (!company.business) return renderSetup(c, { ok: false, message: "'무엇을 하는 회사인가요?' 를 적어 주세요. 모든 부서가 이걸 보고 일합니다." });
   const client = db(c.env);
   await saveSetting(client, "company", company);
@@ -396,6 +406,37 @@ web.post("/setup/company", async (c) => {
   if (vision) must(await client.from("company_profile").upsert({ id: 1, vision, strategy: "", updated_at: new Date().toISOString() }));
   return renderSetup(c, { ok: true, message: "회사 소개를 저장했습니다. 이제 부서를 고르세요." });
 });
+
+// 로고와 메뉴 색: any of the three images, the side menu colour, or removals.
+web.post("/setup/brand", async (c) => {
+  const form = await c.req.parseBody();
+  const client = db(c.env);
+  const versions = { ...currentBrand().versions };
+  const changed: string[] = [];
+  for (const kind of BRAND_KINDS) {
+    const key = `${BRAND_ROW_PREFIX}${kind}`;
+    if (form[`remove_${kind}`]) {
+      must(await client.from("settings").delete().eq("key", key));
+      delete versions[kind];
+      changed.push(`${BRAND_LABEL[kind]} 삭제`);
+      continue;
+    }
+    const file = form[kind];
+    if (!(file instanceof File) || file.size === 0) continue;
+    const converted = toDataUrl(new Uint8Array(await file.arrayBuffer()));
+    if (!converted.ok) return renderSetup(c, { ok: false, message: `${BRAND_LABEL[kind]}: ${converted.message}` });
+    must(await client.from("settings").upsert({ key, value: converted.dataUrl, updated_at: new Date().toISOString() }));
+    versions[kind] = Date.now();
+    changed.push(`${BRAND_LABEL[kind]} 저장`);
+  }
+  const theme = form.theme === "white" ? "white" : "black";
+  await saveSetting(client, "brand", JSON.stringify(versions));
+  await saveSetting(client, "sideTheme", theme);
+  setBrand({ versions, theme });
+  return renderSetup(c, { ok: true, message: `${[...changed, `메뉴 색: ${theme === "white" ? "화이트" : "블랙"}`].join(" · ")}. 휴대폰 홈 화면 아이콘은 한 번 지웠다가 다시 추가해야 바뀝니다.` });
+});
+
+const BRAND_LABEL: Record<BrandKind, string> = { logoLight: "밝은 배경용 로고", logoDark: "어두운 배경용 로고", icon: "앱 아이콘" };
 
 web.post("/setup/departments", async (c) => {
   const form = await c.req.parseBody({ all: true });

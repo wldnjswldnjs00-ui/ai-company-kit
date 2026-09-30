@@ -8,6 +8,8 @@ import { MEETING_PREFIX } from "./orders";
 import { AUTO_AGENDA } from "./meeting";
 import { PATROL_TITLE_PREFIX } from "./patrol";
 import { drillInstruction, listPlaybookTitles, playbookTitle, DRILL_TITLE_PREFIX, PLAYBOOK_PREFIX } from "./playbooks";
+import { BENCHMARK_TITLE_PREFIX, benchmarkCompany, benchmarkHour, benchmarkInstruction, benchmarkTitle, parseBenchmarkList } from "./benchmarks";
+import { currentCompany } from "./charter";
 export { DRILL_TITLE_PREFIX };
 
 // 정기 업무: the company's own calendar. Each routine files an ordinary task
@@ -51,6 +53,18 @@ export function drillsFor(departments: Pick<Department, "id" | "name">[]): Routi
       hourKst: DRILL_FIRST_HOUR + (i % (DRILL_LAST_HOUR - DRILL_FIRST_HOUR + 1)),
       instruction: async (client: SupabaseClient) => drillInstruction(d, await listPlaybookTitles(client, d.id)),
     }));
+}
+
+// 벤치마킹: every department, overnight (see benchmarks.ts).
+export function benchmarksFor(departments: Pick<Department, "id" | "name">[]): Routine[] {
+  return departments.map((d, i) => ({
+    key: `benchmark-${d.id}`,
+    department: d.id,
+    title: benchmarkTitle(d.name),
+    hourKst: benchmarkHour(i),
+    instruction: async (_client: SupabaseClient, since: Date) =>
+      benchmarkInstruction(d, benchmarkCompany(parseBenchmarkList(currentCompany().benchmarks), i, Math.floor(since.getTime() / (24 * 3600e3)))),
+  }));
 }
 
 // 법무팀 daily watch. Quiet when nothing changed (see worker).
@@ -221,7 +235,7 @@ export async function runRoutines(env: Env, client: SupabaseClient, now: Date = 
   const departments = await listDepartments(client);
   const installed = new Set(departments.map((d) => d.id));
 
-  for (const r of [...drillsFor(departments), ...ROUTINES]) {
+  for (const r of [...drillsFor(departments), ...benchmarksFor(departments), ...ROUTINES]) {
     if (!installed.has(r.department)) continue;
     if (r.days && !r.days.includes(day)) continue;
     if (hour < r.hourKst) continue;
@@ -298,11 +312,23 @@ async function eveningReport(env: Env, client: SupabaseClient, since: Date): Pro
     const failed = mine.filter((t) => t.status === "failed").length;
     return `${d.emoji} ${d.name} — 완료 ${done} · 진행 ${open}${failed ? ` · 실패 ${failed}` : ""}`;
   });
-  const [{ count: pendingProposals }, { count: learnedToday }, { data: manualsToday }] = await Promise.all([
+  const [{ count: pendingProposals }, { count: learnedToday }, { data: manualsToday }, { data: benchmarksToday }] = await Promise.all([
     client.from("proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
     client.from("knowledge").select("id", { count: "exact", head: true }).gte("created_at", since.toISOString()),
     client.from("knowledge").select("department,content").like("content", `${PLAYBOOK_PREFIX}%`).gte("created_at", since.toISOString()).limit(30),
+    client
+      .from("tasks")
+      .select("department,summary")
+      .eq("status", "done")
+      .like("title", `${BENCHMARK_TITLE_PREFIX}%`)
+      .gte("finished_at", since.toISOString())
+      .limit(20),
   ]);
+  const studied = (benchmarksToday ?? []) as { department: string; summary: string | null }[];
+  const benchmarkLines = studied.map((t) => {
+    const d = departments.find((x) => x.id === t.department);
+    return `  • ${d ? d.name : t.department} — ${(t.summary ?? "").replace(/^요약:\s*/, "").slice(0, 90)}`;
+  });
   const manuals = (manualsToday ?? []) as { department: string | null; content: string }[];
   const manualLines = manuals.slice(0, 10).map((m) => {
     const d = departments.find((x) => x.id === m.department);
@@ -324,6 +350,8 @@ async function eveningReport(env: Env, client: SupabaseClient, since: Date): Pro
       `🧠 오늘 새로 쌓인 기억 ${learnedToday ?? 0}개`,
       `📘 오늘 새 대응 매뉴얼 ${manuals.length}개${manuals.length ? ` — ${env.PUBLIC_BASE_URL ?? ""}/knowledge?playbooks=1` : ""}`,
       ...manualLines.map(escapeHtml),
+      `🔍 오늘 벤치마킹 ${studied.length}건${studied.length ? ` — ${env.PUBLIC_BASE_URL ?? ""}/tasks` : ""}`,
+      ...benchmarkLines.map(escapeHtml),
       `🚀 결재 대기 제안 ${pendingProposals ?? 0}건${pendingProposals ? ` — ${env.PUBLIC_BASE_URL ?? ""}/proposals` : ""}`,
       `두뇌 사용 ${usage?.calls ?? 0} / ${env.BRAIN_DAILY_LIMIT}회`,
     ].join("\n")

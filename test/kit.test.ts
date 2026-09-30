@@ -16,7 +16,8 @@ afterEach(() => {
 const baseEnv = { SUPABASE_URL: "https://x.supabase.co", SUPABASE_SECRET_KEY: "sb_secret_x", GEMINI_MODEL: "m", BRAIN_DAILY_LIMIT: "200", DASHBOARD_PASSWORD: "pw", TELEGRAM_BOT_TOKEN: "1:abc" } as Env;
 
 function settingsClient(rows: { key: string; value: string }[] | null) {
-  return { from: () => ({ select: async () => (rows ? { data: rows, error: null } : { data: null, error: { message: "relation does not exist" } }) }) } as unknown as SupabaseClient;
+  const result = rows ? { data: rows.filter((r) => !r.key.startsWith("brand:")), error: null } : { data: null, error: { message: "relation does not exist" } };
+  return { from: () => ({ select: () => ({ not: async () => result }) }) } as unknown as SupabaseClient;
 }
 
 describe("the buyer types five values; the rest is derived or saved", () => {
@@ -40,6 +41,14 @@ describe("the buyer types five values; the rest is derived or saved", () => {
     expect(env.WEBSITE_URL).toBe("https://shop.example.com");
     expect(env.SESSION_SECRET).toBeTruthy();
     expect(companyCharter()).toContain("봄날베이커리");
+  });
+
+  it("keeps the logo choice and menu colour", async () => {
+    const { currentBrand, brandUrl } = await import("../src/brand");
+    await hydrate(baseEnv, settingsClient([{ key: "brand", value: JSON.stringify({ logoDark: 123 }) }, { key: "sideTheme", value: "white" }]));
+    expect(currentBrand().theme).toBe("white");
+    expect(brandUrl("logoDark")).toBe("/brand/logoDark?v=123");
+    expect(brandUrl("icon")).toBeUndefined();
   });
 
   it("still works before setup.sql is run, and lets hand-set values win", async () => {
@@ -127,5 +136,39 @@ describe("setup help prompt", () => {
     expect(p).toContain("붙여 넣지 않을게");
     const ceo = helpPrompt({ key: "ceo", label: "CEO 채팅 연결", hint: "/start 482913 를 보내세요" });
     expect(ceo).not.toContain("482913");
+  });
+});
+
+describe("벤치마킹", () => {
+  it("studies the companies the CEO listed, or lets the department choose", async () => {
+    const { parseBenchmarkList, benchmarkCompany, benchmarkInstruction, benchmarkHour, BENCHMARK_ANGLES } = await import("../src/company/benchmarks");
+    const list = parseBenchmarkList("쿠팡, 스타벅스\n파리바게뜨, 쿠팡");
+    expect(list).toEqual(["쿠팡", "스타벅스", "파리바게뜨"]);
+    expect(benchmarkCompany([], 0, 5)).toBeNull();
+    expect(new Set(list.map((_, i) => benchmarkCompany(list, i, 100))).size).toBe(3);
+    expect(benchmarkInstruction({ id: "cs", name: "고객지원팀" }, "쿠팡")).toContain("오늘 공부할 회사: 쿠팡");
+    expect(benchmarkInstruction({ id: "cs", name: "고객지원팀" }, null)).toContain("직접 고른다");
+    for (const d of CATALOG) expect(BENCHMARK_ANGLES[d.id]).toBeTruthy();
+    expect(Math.max(...CATALOG.map((_, i) => benchmarkHour(i)))).toBeLessThan(8);
+  });
+
+  it("files one benchmark per installed department", async () => {
+    const { benchmarksFor } = await import("../src/company/routines");
+    const r = benchmarksFor([{ id: "cos", name: "비서실" }, { id: "marketing", name: "마케팅팀" }]);
+    expect(r.map((x) => x.title)).toEqual(["벤치마킹 · 비서실", "벤치마킹 · 마케팅팀"]);
+  });
+});
+
+describe("로고 올리기", () => {
+  it("accepts real PNG/JPEG/WebP only, up to 300KB", async () => {
+    const { toDataUrl, fromDataUrl, sniffImage } = await import("../src/brand");
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    const ok = toDataUrl(png);
+    expect(ok.ok && ok.dataUrl.startsWith("data:image/png;base64,")).toBe(true);
+    expect(ok.ok && fromDataUrl(ok.dataUrl)?.bytes).toEqual(png);
+    expect(sniffImage(new TextEncoder().encode('<svg onload="alert(1)">'))).toBeNull();
+    expect(toDataUrl(new TextEncoder().encode("<svg/>")).ok).toBe(false);
+    expect(toDataUrl(new Uint8Array(300_001).fill(0xff)).ok).toBe(false);
+    expect(fromDataUrl("data:image/svg+xml;base64,PHN2Zy8+")).toBeNull();
   });
 });

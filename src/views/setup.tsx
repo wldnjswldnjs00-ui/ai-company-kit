@@ -3,6 +3,7 @@ import { Layout } from "./pages";
 import { helpPrompt, type Check } from "../setupChecks";
 import type { Settings } from "../settings";
 import type { CatalogDepartment } from "../company/departments";
+import { currentBrand, brandUrl, BRAND_KINDS, type BrandKind } from "../brand";
 
 // 설치 화면: five steps on one page. Every step shows ✅/❌, and every ❌
 // says exactly where to go and what to change — the buyer needs no one.
@@ -22,6 +23,56 @@ const Status: FC<{ check: Check }> = ({ check }) => (
     )}
   </li>
 );
+
+const BRAND_FIELDS: Record<BrandKind, { label: string; hint: string; bg: string }> = {
+  logoLight: { label: "밝은 배경용 로고", hint: "검은색·진한 글씨 로고. 흰 메뉴에 쓰입니다.", bg: "#fff" },
+  logoDark: { label: "어두운 배경용 로고", hint: "흰색·밝은 글씨 로고. 검정 메뉴에 쓰입니다.", bg: "#161618" },
+  icon: { label: "앱 아이콘 (휴대폰 홈 화면)", hint: "정사각형 이미지. 512×512 크기를 추천합니다.", bg: "#f3f3f1" },
+};
+
+// 로고와 메뉴 색: optional, any time after the basics are connected.
+const BrandForm: FC = () => {
+  const b = currentBrand();
+  return (
+    <form class="card" method="post" action="/setup/brand" enctype="multipart/form-data">
+      <p class="muted">
+        올리지 않으면 회사 이름이 글자로 표시됩니다. 로고는 하나만 올려도 됩니다. PNG·JPG·WebP, 300KB 이하. 배경이 투명한 PNG 가 가장 깔끔합니다.
+      </p>
+      <label>왼쪽 메뉴 색</label>
+      <div class="row" style="margin-top:4px">
+        <label>
+          <input type="radio" name="theme" value="black" checked={b.theme === "black"} /> ⬛ 블랙
+        </label>
+        <label>
+          <input type="radio" name="theme" value="white" checked={b.theme === "white"} /> ⬜ 화이트
+        </label>
+      </div>
+      {BRAND_KINDS.map((kind) => {
+        const f = BRAND_FIELDS[kind];
+        const url = brandUrl(kind, b);
+        return (
+          <div style="margin-top:14px">
+            <label>
+              <b>{f.label}</b> <span class="muted">— {f.hint}</span>
+            </label>
+            {url && (
+              <div class="row">
+                <img src={url} alt="" style={`max-height:44px;max-width:200px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:${f.bg}`} />
+                <label class="muted">
+                  <input type="checkbox" name={`remove_${kind}`} value="1" /> 지우기
+                </label>
+              </div>
+            )}
+            <input type="file" name={kind} accept="image/png,image/jpeg,image/webp" style="margin-top:6px" />
+          </div>
+        );
+      })}
+      <div class="row">
+        <button>저장</button>
+      </div>
+    </form>
+  );
+};
 
 const input = "width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit";
 
@@ -79,6 +130,8 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
             <textarea name="rules" placeholder="예) 할인 경쟁은 하지 않는다. 고객에게는 존댓말. 건강 효능은 말하지 않는다.">{company?.rules ?? ""}</textarea>
             <label>회사 비전 (선택)</label>
             <textarea name="vision" placeholder="예) 동네에서 가장 믿을 수 있는 빵집이 된다."></textarea>
+            <label>배우고 싶은 회사 (벤치마킹, 선택)</label>
+            <textarea name="benchmarks" placeholder="예) 쿠팡, 스타벅스, 파리바게뜨 — 비워 두면 부서들이 우리 업종에서 가장 잘하는 회사를 직접 골라 공부합니다.">{company?.benchmarks ?? ""}</textarea>
             <label>주 활동 국가</label>
             <input name="country" value={company?.country ?? "대한민국"} style={input} />
             <div class="row">
@@ -141,6 +194,13 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
               <button>{done(4) ? "🔄 다시 연결" : "봇 연결하기"}</button>
             </form>
           </div>
+        </>
+      )}
+
+      {settings && (
+        <>
+          <h2>🎨 로고와 메뉴 색 (선택)</h2>
+          <BrandForm />
         </>
       )}
 

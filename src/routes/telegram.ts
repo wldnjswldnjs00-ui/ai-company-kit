@@ -1,4 +1,5 @@
 import { followUp, type Followup } from "../company/followup";
+import { KIT_VERSION } from "../version";
 import { AUTO_AGENDA } from "../company/meeting";
 import { PATROL_TITLE } from "../company/routines";
 import { brainDescription } from "../brain";
@@ -26,7 +27,7 @@ export async function statusCheck(env: Env): Promise<string> {
   const [departments, settings] = await Promise.all([listDepartments(client), loadSettings(client)]);
   const ok = (v: unknown) => (v ? "✅" : "❌");
   return [
-    "🔌 <b>연결 점검</b>",
+    `🔌 <b>연결 점검</b> · AI 본사 ${KIT_VERSION}`,
     "",
     `${ok(settings)} 데이터베이스 (Supabase)`,
     `${ok(env.GEMINI_API_KEY)} 두뇌 열쇠 (GEMINI_API_KEY)`,

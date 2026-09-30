@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import { currentBrand, brandUrl } from "./brand";
+import { currentCompany } from "./company/charter";
 
-// Home-screen icon served by the HQ itself (no login needed). Replace the
-// two PNGs below with the company's own logo if you like.
+// Default home-screen icon served by the HQ itself (no login needed). The
+// company's own icon can be uploaded on the setup screen instead.
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 const FILES: Record<string, string> = {
@@ -28,4 +30,14 @@ for (const [path, data] of Object.entries(FILES)) {
   assets.get(path, () => new Response(b64(data), { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } }));
 }
 assets.get("/favicon.ico", (c) => c.redirect("/apple-touch-icon.png", 301));
-assets.get("/manifest.webmanifest", (c) => c.json(MANIFEST, 200, { "Content-Type": "application/manifest+json" }));
+// Named after the company, with its own icon once one is uploaded.
+assets.get("/manifest.webmanifest", (c) => {
+  const icon = brandUrl("icon");
+  const color = currentBrand().theme === "white" ? "#ffffff" : "#000000";
+  const name = `${currentCompany().name} 본사`;
+  return c.json(
+    { ...MANIFEST, name, short_name: name, background_color: color, theme_color: color, icons: icon ? [{ src: icon, sizes: "any", purpose: "any" }] : MANIFEST.icons },
+    200,
+    { "Content-Type": "application/manifest+json" }
+  );
+});

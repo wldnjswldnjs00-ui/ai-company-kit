@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Env } from "./env";
 import { setCompany, type Company } from "./company/charter";
+import { setBrand, parseBrand, BRAND_ROW_PREFIX } from "./brand";
 
 // Values the setup screen saves, so the buyer never edits Cloudflare for
 // them. One small table (settings: key → value), read once per request.
@@ -13,10 +14,13 @@ export type Settings = {
   telegramCode?: string; // one-time code the CEO sends to the bot to pair
   setupDone?: string;
   statusNote?: string; // "지금 회사 현황" the CEO writes; shown to every department
+  brand?: string; // which logo images exist, and when they changed (see brand.ts)
+  sideTheme?: string; // "black" | "white" side menu
 };
 
 export async function loadSettings(client: SupabaseClient): Promise<Settings | null> {
-  const { data, error } = await client.from("settings").select("key,value");
+  // Logo images live in the same table but are read only when served.
+  const { data, error } = await client.from("settings").select("key,value").not("key", "like", `${BRAND_ROW_PREFIX}%`);
   if (error) return null; // not installed yet (setup.sql not run)
   const out: Record<string, unknown> = {};
   for (const { key, value } of data as { key: string; value: string }[]) {
@@ -62,6 +66,7 @@ export async function hydrate(env: Env, client: SupabaseClient | null): Promise<
     settings = null;
   }
   if (settings?.company) setCompany(settings.company, settings.statusNote);
+  setBrand(parseBrand(settings?.brand, settings?.sideTheme));
   return {
     settings,
     env: {
