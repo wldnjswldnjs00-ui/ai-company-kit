@@ -9,3 +9,4 @@
 - 설치 화면의 모든 실패에는 "어디서 무엇을 고치는지" 문장을 붙인다.
 - 커밋 전: `npx tsc --noEmit`, `npx vitest run`, `npx wrangler deploy --dry-run`.
 - 버전을 올릴 때: `src/version.ts` 의 KIT_VERSION, README 맨 위 버전, README **업데이트 기록** 표에 한 줄(바뀐 것 / 구매자가 해야 할 일: 파일 교체만인지, SQL 다시 실행인지, 새 값이 필요한지)을 함께 고친다. DB 가 바뀌면 setup.sql 에 넣고 "SQL 다시 실행" 을 적는다.
+- 판매용 ZIP 이름은 `AI기업만들기_<버전>.zip`(예: `AI기업만들기_1.2.zip`). 압축 안 폴더 이름도 같게: `git archive --format=zip --prefix="AI기업만들기_<버전>/" -o "AI기업만들기_<버전>.zip" HEAD`. 만들기 전에 SEVN·Pi·개인 흔적과 .dev.vars 가 없는지 검사한다.
