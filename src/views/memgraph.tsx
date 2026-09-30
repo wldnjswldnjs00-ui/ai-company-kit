@@ -3,6 +3,7 @@ import { raw } from "hono/html";
 import type { Department } from "../db";
 import type { Knowledge } from "../company/memory";
 import { isPlaybook, PLAYBOOK_PREFIX } from "../company/playbooks";
+import { Icon } from "./icons";
 
 // 기억 지도: the company's memory as a slowly turning 3D constellation.
 // The company sits in the middle, departments around it, and each memory
@@ -56,12 +57,15 @@ var hubs={};var R=used.length>1?(used.length>5?200:170):0;
 used.forEach(function(d,i){var a=i/used.length*Math.PI*2;var h={x:Math.cos(a)*R,y:(rnd(i+1)-.5)*70,z:Math.sin(a)*R,r:6,hub:true,label:d.name,color:'#e8e8ee'};hubs[d.id]=h;nodes.push(h);edges.push([center,h,.28]);});
 data.memories.forEach(function(m,i){var h=(m.d&&hubs[m.d])||center;var u=rnd(i*3+7)*Math.PI*2,v=Math.acos(2*rnd(i*5+3)-1),s=30+rnd(i*7+1)*46;
 var n={x:h.x+s*Math.sin(v)*Math.cos(u),y:h.y+s*Math.cos(v),z:h.z+s*Math.sin(v)*Math.sin(u),r:2.2+Math.min(m.w||1,6)*.55,color:COLORS[m.k]||'#aaaaaa',m:m,hubName:h.label};nodes.push(n);edges.push([h,n,.11]);});
-var yaw=.6,pitch=-.32,auto=!window.matchMedia('(prefers-reduced-motion: reduce)').matches,drag=null,hover=null,W=0,H=0,dpr=1;
+var yaw=.6,pitch=-.32,auto=!window.matchMedia('(prefers-reduced-motion: reduce)').matches,drag=null,hover=null,W=0,H=0,dpr=1,zoom=1,panX=0,panY=0,pts={},pinch=null;
+var ZMIN=.7,ZMAX=5;function zoomed(){return zoom>1.05;}
 function size(){dpr=window.devicePixelRatio||1;W=root.clientWidth;H=canvas.clientHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
 function project(n){var cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
 var x=n.x*cy-n.z*sy,z=n.x*sy+n.z*cy;var y=n.y*cp-z*sp;z=n.y*sp+z*cp;var scale=Math.min(W/(W<520?470:600),H/300),f=700/(700+z);
-n.sx=W/2+x*f*scale;n.sy=H/2+y*f*scale;n.sz=z;n.sf=f;}
-function frame(){if(auto&&!drag&&!hover)yaw+=.0016;
+n.sx=W/2+panX+x*f*scale*zoom;n.sy=H/2+panY+y*f*scale*zoom;n.sz=z;n.sf=f*Math.sqrt(zoom);}
+function zoomAt(nz,cx,cy){nz=Math.max(ZMIN,Math.min(ZMAX,nz));var bx=(cx-W/2-panX)/zoom,by=(cy-H/2-panY)/zoom;zoom=nz;panX=cx-W/2-bx*zoom;panY=cy-H/2-by*zoom;if(zoom<=1.05){panX*=zoom<1?1:0;panY*=zoom<1?1:0;}canvas.style.touchAction=zoomed()?'none':'pan-y';root.classList.toggle('mg-zoomed',zoomed());}
+function resetView(){zoom=1;panX=0;panY=0;canvas.style.touchAction='pan-y';root.classList.remove('mg-zoomed');}
+function frame(){if(auto&&!drag&&!hover&&!zoomed())yaw+=.0016;
 nodes.forEach(project);ctx.clearRect(0,0,W,H);
 if(R){[1,.55].forEach(function(k,ri){ctx.beginPath();for(var i=0;i<=72;i++){var a=i/72*Math.PI*2,p={x:Math.cos(a)*R*k,y:ri?40:0,z:Math.sin(a)*R*k};project(p);if(i)ctx.lineTo(p.sx,p.sy);else ctx.moveTo(p.sx,p.sy);}ctx.setLineDash(ri?[2,6]:[]);ctx.strokeStyle='rgba(255,255,255,'+(ri?.07:.1)+')';ctx.lineWidth=1;ctx.stroke();});ctx.setLineDash([]);}
 edges.forEach(function(e){var a=e[0],b=e[1],d=Math.max(.15,Math.min(1,(700-(a.sz+b.sz)/2)/900));ctx.strokeStyle='rgba(255,255,255,'+(e[2]*d)+')';ctx.lineWidth=e[2]>.2?1.2:.8;ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();});
@@ -80,11 +84,21 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;
 function showTip(n,px,py){if(!n){tip.style.opacity=0;return;}tip.innerHTML='<b style="color:'+n.color+'">'+esc(LABELS[n.m.k]||'')+'</b> · '+esc(n.hubName)+'<div>'+esc(n.m.t)+'</div>';
 var x=Math.min(px+14,W-tip.offsetWidth-8),y=py+14;if(y+tip.offsetHeight>H-8)y=py-tip.offsetHeight-14;tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,y)+'px';tip.style.opacity=1;}
 function pos(e){var b=canvas.getBoundingClientRect();return[e.clientX-b.left,e.clientY-b.top];}
-canvas.addEventListener('pointerdown',function(e){drag=pos(e).concat([yaw,pitch]);canvas.setPointerCapture(e.pointerId);});
-canvas.addEventListener('pointermove',function(e){var p=pos(e);if(drag){yaw=drag[2]+(p[0]-drag[0])*.008;pitch=Math.max(-1.2,Math.min(1.2,drag[3]+(p[1]-drag[1])*.006));showTip(null);return;}hover=pick(p[0],p[1]);showTip(hover,p[0],p[1]);});
-canvas.addEventListener('pointerup',function(e){var p=pos(e),moved=drag&&Math.abs(p[0]-drag[0])+Math.abs(p[1]-drag[1])>4;drag=null;if(!moved){hover=pick(p[0],p[1]);showTip(hover,p[0],p[1]);}});
-canvas.addEventListener('pointercancel',function(){drag=null;});
+canvas.addEventListener('pointerdown',function(e){var p=pos(e);pts[e.pointerId]=p;canvas.setPointerCapture(e.pointerId);var ids=Object.keys(pts);
+if(ids.length===2){var a=pts[ids[0]],b=pts[ids[1]];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]),z:zoom};drag=null;return;}
+drag=p.concat([yaw,pitch,panX,panY]);});
+canvas.addEventListener('pointermove',function(e){var p=pos(e);if(pts[e.pointerId])pts[e.pointerId]=p;var ids=Object.keys(pts);
+if(pinch&&ids.length===2){var a=pts[ids[0]],b=pts[ids[1]];zoomAt(pinch.z*Math.hypot(a[0]-b[0],a[1]-b[1])/pinch.d,(a[0]+b[0])/2,(a[1]+b[1])/2);showTip(null);return;}
+if(drag){if(zoomed()){panX=drag[4]+(p[0]-drag[0]);panY=drag[5]+(p[1]-drag[1]);}else{yaw=drag[2]+(p[0]-drag[0])*.008;pitch=Math.max(-1.2,Math.min(1.2,drag[3]+(p[1]-drag[1])*.006));}showTip(null);return;}
+hover=pick(p[0],p[1]);showTip(hover,p[0],p[1]);});
+function lift(e){delete pts[e.pointerId];if(Object.keys(pts).length<2)pinch=null;}
+canvas.addEventListener('pointerup',function(e){var p=pos(e),moved=drag&&Math.abs(p[0]-drag[0])+Math.abs(p[1]-drag[1])>4;var was=drag;drag=null;lift(e);if(was&&!moved){hover=pick(p[0],p[1]);showTip(hover,p[0],p[1]);}});
+canvas.addEventListener('pointercancel',function(e){drag=null;lift(e);});
 canvas.addEventListener('pointerleave',function(){if(!drag){hover=null;showTip(null);}});
+canvas.addEventListener('dblclick',function(e){var p=pos(e);zoomAt(zoom*1.8,p[0],p[1]);});
+// Trackpad pinch arrives as ctrl+wheel; a plain wheel still scrolls the page.
+canvas.addEventListener('wheel',function(e){if(!e.ctrlKey)return;e.preventDefault();var p=pos(e);zoomAt(zoom*Math.exp(-e.deltaY*.01),p[0],p[1]);},{passive:false});
+root.querySelectorAll('[data-zoom]').forEach(function(btn){btn.addEventListener('click',function(){var z=btn.getAttribute('data-zoom');if(z==='reset')resetView();else zoomAt(zoom*(z==='in'?1.5:1/1.5),W/2,H/2);});});
 window.addEventListener('resize',size);size();requestAnimationFrame(frame);
 })();`;
 
@@ -94,13 +108,21 @@ export const MemoryGraph: FC<{ data: GraphData }> = ({ data }) => (
       <div>
         <div class="mg-title">기억 지도</div>
         <div class="mg-sub">
-          기억 {data.memories.length}개 · 부서 {new Set(data.memories.map((m) => m.d).filter(Boolean)).size}곳 · 드래그해서 돌려 보고, 점을 누르면 내용이 보입니다
+          기억 {data.memories.length}개 · 부서 {new Set(data.memories.map((m) => m.d).filter(Boolean)).size}곳 · 드래그로 돌리고, 확대해서 점을 누르면 내용이 보입니다
         </div>
       </div>
     </div>
     <div id="memgraph" class="mg-stage">
       <canvas />
       <div class="mg-tip" />
+      <div class="mg-zoom">
+        <button type="button" data-zoom="in" aria-label="확대">+</button>
+        <button type="button" data-zoom="out" aria-label="축소">−</button>
+        <button type="button" data-zoom="reset" aria-label="원래대로" title="원래대로">
+          <Icon name="refresh" />
+        </button>
+      </div>
+      <div class="mg-hint">확대하면 회전이 멈추고, 드래그로 이동합니다</div>
     </div>
     <div class="mg-legend">
       {MEMORY_KINDS.map(([, label, color]) => (
@@ -127,5 +149,10 @@ export const MEMGRAPH_CSS = `
 .mg-tip div{margin-top:4px;color:#c9c9d1}
 .mg-legend{position:relative;display:flex;flex-wrap:wrap;gap:6px 16px;padding:0 22px 18px;font-size:12.5px;color:#a9a9b3}
 .mg-legend span{display:inline-flex;align-items:center;gap:7px}.mg-legend i{width:8px;height:8px;border-radius:50%}
-@media (max-width:860px){.mg-stage canvas{height:320px}}
+.mg-zoom{position:absolute;right:16px;top:12px;display:flex;flex-direction:column;gap:6px}
+.mg-zoom button{width:34px;height:34px;padding:0;border-radius:10px;background:rgba(28,28,34,.85);border:1px solid #33333c;color:#e9e9ee;font:500 18px/1 -apple-system,sans-serif;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mg-zoom button:hover{background:#2a2a32}.mg-zoom .ic{width:15px;height:15px;vertical-align:0}
+.mg-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:12px;color:#9a9aa3;background:rgba(20,20,25,.8);padding:4px 10px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none}
+.mg-zoomed .mg-hint{opacity:1}.mg-zoomed canvas{cursor:move}
+@media (max-width:860px){.mg-stage canvas{height:340px}}
 `;
