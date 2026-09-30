@@ -24,7 +24,7 @@ export type GraphData = {
   memories: { d: string | null; k: string; w: number; t: string }[];
 };
 
-export function graphData(company: string, departments: Pick<Department, "id" | "name">[], items: Knowledge[]): GraphData {
+export function graphData(company: string, departments: Pick<Department, "id" | "name">[], items: Pick<Knowledge, "department" | "kind" | "content" | "weight">[]): GraphData {
   return {
     company,
     departments: departments.map((d) => ({ id: d.id, name: d.name })),
@@ -32,19 +32,21 @@ export function graphData(company: string, departments: Pick<Department, "id" | 
       d: m.department,
       k: isPlaybook(m.content) ? "playbook" : m.kind,
       w: m.weight,
-      t: (isPlaybook(m.content) ? m.content.slice(PLAYBOOK_PREFIX.length) : m.content).slice(0, 160),
+      t: (isPlaybook(m.content) ? m.content.slice(PLAYBOOK_PREFIX.length) : m.content).slice(0, 140),
     })),
   };
 }
 
-// JSON inside <script> must never contain "</script>".
-export function safeJson(value: unknown): string {
-  return JSON.stringify(value).replaceAll("<", "\\u003c");
-}
 
 const SCRIPT = `(function(){
 var root=document.getElementById('memgraph');if(!root)return;
-var data=JSON.parse(document.getElementById('memgraph-data').textContent);
+var sub=root.parentNode.querySelector('.mg-sub');
+fetch(root.getAttribute('data-src'),{credentials:'same-origin'}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(start).catch(function(){sub.textContent='기억 지도를 불러오지 못했습니다. 새로고침해 보세요.';});
+function start(data){
+if(!data.memories.length){sub.textContent='아직 기억이 없습니다. 부서들이 일할수록 여기에 별이 하나씩 생깁니다.';return;}
+sub.textContent='기억 '+data.memories.length+'개 · 부서 '+new Set(data.memories.map(function(m){return m.d;}).filter(Boolean)).size+'곳 · 드래그로 돌리고, 휠이나 두 손가락으로 확대해서 점을 누르세요';
+root.classList.add('mg-ready');
+var GLOWS={};function glow(c){if(GLOWS[c])return GLOWS[c];var o=document.createElement('canvas');o.width=o.height=64;var x=o.getContext('2d'),g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,c);g.addColorStop(.35,c);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return GLOWS[c]=o;}
 var COLORS={};${MEMORY_KINDS.map(([k, , c]) => `COLORS.${k}='${c}';`).join("")}
 var LABELS={};${MEMORY_KINDS.map(([k, l]) => `LABELS.${k}='${l}';`).join("")}
 var canvas=root.querySelector('canvas'),ctx=canvas.getContext('2d'),tip=root.querySelector('.mg-tip');
@@ -55,29 +57,30 @@ var used=data.departments.filter(function(d){return data.memories.some(function(
 if(!used.length)used=data.departments.slice(0,8);
 var hubs={};var RX=used.length>1?250:0,RY=used.length>1?150:0,RZ=used.length>1?200:0,R=RX;
 used.forEach(function(d,i){var N=used.length,yy=N>1?1-2*(i+.5)/N:0,rr=Math.sqrt(1-yy*yy),th=i*2.39996;var h={x:Math.cos(th)*rr*RX,y:yy*RY,z:Math.sin(th)*rr*RZ,r:6,hub:true,label:d.name,color:'#e8e8ee'};hubs[d.id]=h;nodes.push(h);edges.push([center,h,.28]);});
-data.memories.forEach(function(m,i){var h=(m.d&&hubs[m.d])||center;var u=rnd(i*3+7)*Math.PI*2,v=Math.acos(2*rnd(i*5+3)-1),s=30+rnd(i*7+1)*46;
-var n={x:h.x+s*Math.sin(v)*Math.cos(u),y:h.y+s*Math.cos(v),z:h.z+s*Math.sin(v)*Math.sin(u),r:2.2+Math.min(m.w||1,6)*.55,color:COLORS[m.k]||'#aaaaaa',m:m,hubName:h.label};nodes.push(n);edges.push([h,n,.11]);});
+var per={};data.memories.forEach(function(m){var k=(m.d&&hubs[m.d])?m.d:'';per[k]=(per[k]||0)+1;});var DENSE=Math.min(1,220/Math.max(1,data.memories.length));
+data.memories.forEach(function(m,i){var h=(m.d&&hubs[m.d])||center;var spread=Math.min(1.6,Math.max(1,Math.sqrt((per[(m.d&&hubs[m.d])?m.d:'']||1)/25)));var u=rnd(i*3+7)*Math.PI*2,v=Math.acos(2*rnd(i*5+3)-1),s=(30+Math.pow(rnd(i*7+1),.6)*46)*spread;
+var n={x:h.x+s*Math.sin(v)*Math.cos(u),y:h.y+s*Math.cos(v),z:h.z+s*Math.sin(v)*Math.sin(u),r:(2.2+Math.min(m.w||1,6)*.55)*(.55+.45*DENSE),color:COLORS[m.k]||'#aaaaaa',m:m,hubName:h.label};nodes.push(n);edges.push([h,n,.11]);});
+var EXT_XZ=1,EXT_Y=1;nodes.forEach(function(n){EXT_XZ=Math.max(EXT_XZ,Math.sqrt(n.x*n.x+n.z*n.z));EXT_Y=Math.max(EXT_Y,Math.abs(n.y));});
 var yaw=.6,pitch=-.32,auto=!window.matchMedia('(prefers-reduced-motion: reduce)').matches,drag=null,hover=null,W=0,H=0,dpr=1,zoom=1,panX=0,panY=0,pts={},pinch=null;
 var ZMIN=.7,ZMAX=5;function zoomed(){return zoom>1.05;}
 function size(){dpr=window.devicePixelRatio||1;W=root.clientWidth;H=canvas.clientHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
 function project(n){var cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
-var x=n.x*cy-n.z*sy,z=n.x*sy+n.z*cy;var y=n.y*cp-z*sp;z=n.y*sp+z*cp;var scale=Math.min(W/(W<520?500:700),H/(W<520?470:500)),f=700/(700+z);
+var x=n.x*cy-n.z*sy,z=n.x*sy+n.z*cy;var y=n.y*cp-z*sp;z=n.y*sp+z*cp;var scale=Math.min(W*.5/EXT_XZ,H*.47/(EXT_Y+EXT_XZ*.33)),f=700/(700+z);
 n.sx=W/2+panX+x*f*scale*zoom;n.sy=H/2+panY+y*f*scale*zoom;n.sz=z;n.sf=f*Math.sqrt(zoom);}
 function zoomAt(nz,cx,cy){nz=Math.max(ZMIN,Math.min(ZMAX,nz));var bx=(cx-W/2-panX)/zoom,by=(cy-H/2-panY)/zoom;zoom=nz;panX=cx-W/2-bx*zoom;panY=cy-H/2-by*zoom;if(zoom<=1.05){panX*=zoom<1?1:0;panY*=zoom<1?1:0;}canvas.style.touchAction=zoomed()?'none':'pan-y';root.classList.toggle('mg-zoomed',zoomed());}
 function resetView(){zoom=1;panX=0;panY=0;canvas.style.touchAction='pan-y';root.classList.remove('mg-zoomed');}
 function frame(){if(auto&&!drag&&!hover&&!zoomed())yaw+=.0016;
 nodes.forEach(project);ctx.clearRect(0,0,W,H);
 if(R){[[1,0],[0,1],[0,2]].forEach(function(k,ri){ctx.beginPath();for(var i=0;i<=72;i++){var a=i/72*Math.PI*2,c=Math.cos(a),q=Math.sin(a),p=ri===0?{x:c*RX,y:0,z:q*RZ}:ri===1?{x:c*RX,y:q*RY,z:0}:{x:0,y:q*RY,z:c*RZ};project(p);if(i)ctx.lineTo(p.sx,p.sy);else ctx.moveTo(p.sx,p.sy);}ctx.setLineDash(ri?[2,6]:[]);ctx.strokeStyle='rgba(255,255,255,'+(ri?.07:.1)+')';ctx.lineWidth=1;ctx.stroke();});ctx.setLineDash([]);}
-edges.forEach(function(e){var a=e[0],b=e[1],d=Math.max(.15,Math.min(1,(700-(a.sz+b.sz)/2)/900));ctx.strokeStyle='rgba(255,255,255,'+(e[2]*d)+')';ctx.lineWidth=e[2]>.2?1.2:.8;ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();});
+edges.forEach(function(e){var a=e[0],b=e[1],d=Math.max(.15,Math.min(1,(700-(a.sz+b.sz)/2)/900));ctx.strokeStyle='rgba(255,255,255,'+(e[2]*d*(e[2]>.2?1:DENSE))+')';ctx.lineWidth=e[2]>.2?1.2:.8;ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();});
 var order=nodes.slice().sort(function(a,b){return b.sz-a.sz;});
 order.forEach(function(n){var depth=Math.max(.25,Math.min(1,(620-n.sz)/780)),r=n.r*n.sf*(n===hover?1.8:1);
 if(n.hub){ctx.fillStyle='#16161a';ctx.strokeStyle='rgba(255,255,255,'+(.5+.5*depth)+')';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(n.sx,n.sy,r+3,0,7);ctx.fill();ctx.stroke();
 ctx.fillStyle=n.color;ctx.beginPath();ctx.arc(n.sx,n.sy,r*.45,0,7);ctx.fill();
-ctx.font=(n===center?'700 13px ':(W<520?'600 11px ':'600 12px '))+'-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';ctx.textAlign='center';
-ctx.fillStyle='rgba(255,255,255,'+(.45+.55*depth)+')';ctx.fillText(n.label,n.sx,n.sy-r-9);return;}
-var g=ctx.createRadialGradient(n.sx,n.sy,0,n.sx,n.sy,r*3.2);g.addColorStop(0,n.color);g.addColorStop(.35,n.color);g.addColorStop(1,'rgba(0,0,0,0)');
-ctx.globalAlpha=depth*.5;ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.sx,n.sy,r*3.2,0,7);ctx.fill();
+n.depth=depth;n.lr=r;return;}
+var gl=glow(n.color),gr=r*3.2;ctx.globalAlpha=depth*(.2+.3*DENSE);ctx.drawImage(gl,n.sx-gr,n.sy-gr,gr*2,gr*2);
 ctx.globalAlpha=Math.min(1,depth+.15);ctx.fillStyle=n.color;ctx.beginPath();ctx.arc(n.sx,n.sy,r,0,7);ctx.fill();ctx.globalAlpha=1;});
+ctx.textAlign='center';ctx.lineJoin='round';order.forEach(function(n){if(!n.hub)return;ctx.font=(n===center?'700 13px ':(W<520?'600 11px ':'600 12px '))+'-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';ctx.lineWidth=4;ctx.strokeStyle='rgba(12,12,15,.85)';ctx.strokeText(n.label,n.sx,n.sy-n.lr-9);ctx.fillStyle='rgba(255,255,255,'+(.55+.45*n.depth)+')';ctx.fillText(n.label,n.sx,n.sy-n.lr-9);});
 requestAnimationFrame(frame);}
 function pick(px,py){var best=null,bd=1e9;nodes.forEach(function(n){if(!n.m)return;var dx=n.sx-px,dy=n.sy-py,d=dx*dx+dy*dy,lim=Math.max(9,n.r*n.sf*2.4);if(d<lim*lim&&d<bd){bd=d;best=n;}});return best;}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
@@ -100,19 +103,17 @@ canvas.addEventListener('dblclick',function(e){var p=pos(e);zoomAt(zoom*1.8,p[0]
 canvas.addEventListener('wheel',function(e){e.preventDefault();var p=pos(e),k=e.ctrlKey?.01:.0018;zoomAt(zoom*Math.exp(-e.deltaY*k),p[0],p[1]);},{passive:false});
 root.querySelectorAll('[data-zoom]').forEach(function(btn){btn.addEventListener('click',function(){var z=btn.getAttribute('data-zoom');if(z==='reset')resetView();else zoomAt(zoom*(z==='in'?1.5:1/1.5),W/2,H/2);});});
 window.addEventListener('resize',size);size();requestAnimationFrame(frame);
-})();`;
+}})();`;
 
-export const MemoryGraph: FC<{ data: GraphData }> = ({ data }) => (
+export const MemoryGraph: FC<{ src: string }> = ({ src }) => (
   <div class="mg-card">
     <div class="mg-head">
       <div>
         <div class="mg-title">기억 지도</div>
-        <div class="mg-sub">
-          기억 {data.memories.length}개 · 부서 {new Set(data.memories.map((m) => m.d).filter(Boolean)).size}곳 · 드래그로 돌리고, 휠이나 두 손가락으로 확대해서 점을 누르세요
-        </div>
+        <div class="mg-sub">기억을 불러오는 중…</div>
       </div>
     </div>
-    <div id="memgraph" class="mg-stage">
+    <div id="memgraph" class="mg-stage" data-src={src}>
       <canvas />
       <div class="mg-tip" />
       <div class="mg-zoom">
@@ -132,9 +133,6 @@ export const MemoryGraph: FC<{ data: GraphData }> = ({ data }) => (
         </span>
       ))}
     </div>
-    <script type="application/json" id="memgraph-data">
-      {raw(safeJson(data))}
-    </script>
     <script>{raw(SCRIPT)}</script>
   </div>
 );
@@ -144,7 +142,7 @@ export const MEMGRAPH_CSS = `
 .mg-card:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,rgba(255,138,61,.10),transparent 60%);pointer-events:none}
 .mg-head{position:relative;display:flex;justify-content:space-between;padding:18px 22px 0;color:#f2f2f5}
 .mg-title{font-size:17px;font-weight:700;letter-spacing:-.01em}.mg-sub{font-size:12.5px;color:#8d8d97;margin-top:3px}
-.mg-stage{position:relative}.mg-stage canvas{display:block;width:100%;height:520px;cursor:grab;touch-action:pan-y}.mg-stage canvas:active{cursor:grabbing}
+.mg-stage{position:relative}.mg-stage .mg-zoom{opacity:0;transition:opacity .2s}.mg-stage.mg-ready .mg-zoom{opacity:1}.mg-stage canvas{display:block;width:100%;height:520px;cursor:grab;touch-action:pan-y}.mg-stage canvas:active{cursor:grabbing}
 .mg-tip{position:absolute;max-width:280px;padding:10px 12px;border-radius:12px;background:rgba(22,22,27,.92);border:1px solid #2c2c34;color:#e9e9ee;font-size:12.5px;line-height:1.5;pointer-events:none;opacity:0;transition:opacity .12s;backdrop-filter:blur(6px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .mg-tip div{margin-top:4px;color:#c9c9d1}
 .mg-legend{position:relative;display:flex;flex-wrap:wrap;gap:6px 16px;padding:0 22px 18px;font-size:12.5px;color:#a9a9b3}

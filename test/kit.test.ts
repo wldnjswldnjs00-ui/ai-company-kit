@@ -174,15 +174,14 @@ describe("로고 올리기", () => {
 });
 
 describe("기억 지도", () => {
-  it("keeps memory text from closing the script tag", async () => {
-    const { safeJson, graphData } = await import("../src/views/memgraph");
+  it("turns memories into points, with 대응 매뉴얼 as their own kind", async () => {
+    const { graphData } = await import("../src/views/memgraph");
     const data = graphData("회사", [{ id: "cs", name: "고객지원팀" }], [
-      { id: "1", department: "cs", kind: "lesson", content: "</script><script>alert(1)</script>", weight: 2, source_task: null, active: true, created_at: "", updated_at: "" },
-      { id: "2", department: "cs", kind: "fact", content: "[대응 매뉴얼] 상황: 환불 요청", weight: 1, source_task: null, active: true, created_at: "", updated_at: "" },
+      { department: "cs", kind: "lesson", content: "</script><script>alert(1)</script>", weight: 2 },
+      { department: "cs", kind: "fact", content: "[대응 매뉴얼] 상황: 환불 요청", weight: 1 },
     ]);
-    const json = safeJson(data);
-    expect(json).not.toContain("</script>");
-    expect(JSON.parse(json).memories[0].t).toBe("</script><script>alert(1)</script>");
+    expect(data.memories).toHaveLength(2);
     expect(data.memories[1]).toMatchObject({ k: "playbook", t: "상황: 환불 요청" });
+    expect(data.departments).toEqual([{ id: "cs", name: "고객지원팀" }]);
   });
 });

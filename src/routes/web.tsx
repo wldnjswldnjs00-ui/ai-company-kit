@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { graphData } from "../views/memgraph";
+import { currentCompany } from "../company/charter";
 import { setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../env";
 import { requireCeo, secretEquals, issueSession, SESSION_COOKIE, SESSION_TTL_S } from "../auth";
@@ -303,6 +305,21 @@ web.post("/knowledge/drill", async (c) => {
     await createTask(client, { department: d.id, title: r.title, instruction: drillInstruction(d, await listPlaybookTitles(client, d.id)), source: "schedule" });
   }
   return c.redirect("/tasks");
+});
+
+// 기억 지도: every active memory — the list page shows only the top ones.
+// Read in pages because the database returns at most 1000 rows at a time.
+const GRAPH_MAX = 5000;
+web.get("/knowledge/graph.json", async (c) => {
+  const client = db(c.env);
+  const rows: Pick<Knowledge, "department" | "kind" | "content" | "weight">[] = [];
+  for (let from = 0; from < GRAPH_MAX; from += 1000) {
+    const { data, error } = await client.from("knowledge").select("department,kind,content,weight").eq("active", true).order("weight", { ascending: false }).order("id").range(from, from + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as typeof rows));
+    if (!data || data.length < 1000) break;
+  }
+  return c.json(graphData(currentCompany().name, await listDepartments(client), rows), 200, { "Cache-Control": "no-store" });
 });
 
 web.get("/knowledge/export.md", async (c) => {

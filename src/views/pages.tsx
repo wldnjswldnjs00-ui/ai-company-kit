@@ -6,7 +6,7 @@ import { currentCompany } from "../company/charter";
 import { currentBrand, brandUrl } from "../brand";
 import { KIT_VERSION } from "../version";
 import { Icon, DeptIcon } from "./icons";
-import { MemoryGraph, graphData, MEMGRAPH_CSS } from "./memgraph";
+import { MemoryGraph, MEMGRAPH_CSS } from "./memgraph";
 import { jobFor } from "../company/departments";
 import type { ScoreRow } from "../company/scoreboard";
 import { isPlaybook, playbookTitle } from "../company/playbooks";
@@ -556,7 +556,7 @@ export const KnowledgePage: FC<{ items: Knowledge[]; departments: Department[]; 
   <Layout title="회사의 기억">
     <h1>회사의 기억</h1>
     <p class="muted">부서가 일하며 배운 점, 사장님의 피드백과 결정입니다. 모든 업무에서 관련 있는 기억을 찾아 참고합니다. 틀린 기억은 "잊게 하기"로 지우세요.</p>
-    {!playbooks && items.length > 0 && <MemoryGraph data={graphData(currentCompany().name, departments, items)} />}
+    {!playbooks && <MemoryGraph src="/knowledge/graph.json" />}
     <div class="row">
       <a class="pill" href="/knowledge/export.md"><Icon name="download" /> 전체 기억 파일로 받기</a>
       <form method="post" action="/knowledge/backup">
