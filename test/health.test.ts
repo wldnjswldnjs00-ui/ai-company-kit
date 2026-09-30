@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { formatHealthReport } from "../src/company/health";
 
-const name = (id: string) => ({ ops: "운영본부" })[id] ?? id;
+const name = (id: string) => ({ ops: "운영팀" })[id] ?? id;
 
 describe("formatHealthReport", () => {
   it("stays silent when everything is fine", () => {
@@ -18,7 +18,7 @@ describe("formatHealthReport", () => {
       },
       name
     )!;
-    expect(text).toContain("[운영본부] 분쟁 정리");
+    expect(text).toContain("[운영팀] 분쟁 정리");
     expect(text).toContain("2시간 넘게 기다리는 업무 2건");
     expect(text).toContain("3일 넘게 결재를 기다리는 제안 1건");
     expect(text).toContain("gemini 오늘 사용 170/200회");

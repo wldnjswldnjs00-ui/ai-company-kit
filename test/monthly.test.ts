@@ -21,7 +21,7 @@ describe("previousMonth", () => {
 
 describe("formatMonthlyFacts", () => {
   const depts = [
-    { id: "ops", name: "운영본부" },
+    { id: "ops", name: "운영팀" },
     { id: "marketing", name: "마케팅팀" },
   ];
 
@@ -43,7 +43,7 @@ describe("formatMonthlyFacts", () => {
       },
       depts
     );
-    expect(text).toContain("운영본부: 완료 1 · 실패 1 · 전체 2");
+    expect(text).toContain("운영팀: 완료 1 · 실패 1 · 전체 2");
     expect(text).toContain("승인 1 · 거절 1");
     expect(text).toContain("승인: [마케팅팀] 카드뉴스");
     expect(text).toContain("기억(교훈·결정) 7개");

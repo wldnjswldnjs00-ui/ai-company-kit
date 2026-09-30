@@ -7,12 +7,12 @@ const REPORT = `## 결론
 대비 매뉴얼 2개를 만들었다.
 ## 대응 매뉴얼
 ### 상황: 사진 없는 환불 요청
-- 징후: 구매자가 "물건이 이상하다"며 사진 없이 환불을 요청
-- 즉시 할 일: 1. 증빙 기한 안내 2. 판매자에게 알림 3. 기한 후 판정
+- 징후: 고객이 "물건이 이상하다"며 사진 없이 환불을 요청
+- 즉시 할 일: 1. 증빙 기한 안내 2. 담당자에게 알림 3. 기한 후 판정
 - CEO 결재가 필요한 것: 없음
-### 상황: 판매자 연락 두절
-- 징후: 발송 후 판매자가 7일 넘게 답이 없음
-- 즉시 할 일: 1. 정산 보류 2. 구매자 안내
+### 상황: 거래처 연락 두절
+- 징후: 주문 후 거래처가 7일 넘게 답이 없음
+- 즉시 할 일: 1. 대금 지급 보류 2. 고객 안내
 ### 짧음
 - x
 ## 배운 점
@@ -21,10 +21,10 @@ const REPORT = `## 결론
 describe("parsePlaybooks", () => {
   it("splits the 대응 매뉴얼 section into one manual per 상황", () => {
     const out = parsePlaybooks(REPORT);
-    expect(out.map((p) => p.title)).toEqual(["사진 없는 환불 요청", "판매자 연락 두절"]);
+    expect(out.map((p) => p.title)).toEqual(["사진 없는 환불 요청", "거래처 연락 두절"]);
     expect(out[0].content.startsWith(`${PLAYBOOK_PREFIX}상황: 사진 없는 환불 요청\n`)).toBe(true);
     expect(out[0].content).toContain("증빙 기한 안내");
-    expect(out[0].content).not.toContain("판매자 연락 두절"); // stops at the next 상황
+    expect(out[0].content).not.toContain("거래처 연락 두절"); // stops at the next 상황
     expect(out[1].content).not.toContain("배운 점"); // stops at the next ## section
   });
 
@@ -58,7 +58,7 @@ describe("대비 훈련", () => {
   });
 
   it("tells the department what it already has, so it doesn't repeat itself", () => {
-    const text = drillInstruction({ id: "ops", name: "운영본부" }, ["사진 없는 환불 요청"]);
+    const text = drillInstruction({ id: "ops", name: "운영팀" }, ["사진 없는 환불 요청"]);
     expect(text).toContain("- 사진 없는 환불 요청");
     expect(text).toContain("## 대응 매뉴얼");
     expect(text).toContain("### 상황:");

@@ -19,7 +19,7 @@ export function titleFrom(instruction: string): string {
 function findDepartment(departments: Department[], name: string): Department | undefined {
   const n = name.trim().toLowerCase();
   const bare = name.trim().replace(/(팀|실|본부)$/, "");
-  // Exact id or name first, then a prefix ("재무" → 재무정산팀, "운영" → 운영본부).
+  // Exact id or name first, then a prefix ("재무" → 재무팀, "운영" → 운영팀).
   return (
     departments.find((d) => d.id === n || d.name === name.trim()) ??
     (bare.length >= 2 ? departments.find((d) => d.name.startsWith(bare)) : undefined)

@@ -21,7 +21,7 @@ describe("extractLessons", () => {
   const report = `## 결론
 - 결론 문장
 ## 배운 점
-- 판매자 모집은 첫 등록 과정이 짧을수록 전환이 높았다
+- 신규 고객은 첫 구매 과정이 짧을수록 전환이 높았다
 - 없음
 * 분쟁의 60%는 배송 지연에서 시작된다는 데이터가 있었다
 ## 기타
@@ -29,7 +29,7 @@ describe("extractLessons", () => {
 
   it("takes only bullet lines from the 배운 점 section", () => {
     expect(extractLessons(report)).toEqual([
-      "판매자 모집은 첫 등록 과정이 짧을수록 전환이 높았다",
+      "신규 고객은 첫 구매 과정이 짧을수록 전환이 높았다",
       "분쟁의 60%는 배송 지연에서 시작된다는 데이터가 있었다",
     ]);
   });

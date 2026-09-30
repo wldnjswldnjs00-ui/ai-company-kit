@@ -4,7 +4,7 @@ import { maskPersonalData } from "./mask";
 
 // Turns text into a meaning vector (1024 numbers) with Cloudflare Workers
 // AI's free multilingual model, so the company's memory can be searched by
-// meaning ("판매자 모집" finds "셀러 유치"), not just by exact words.
+// meaning ("신규 고객 모집" finds "손님 늘리기"), not just by exact words.
 //
 // Memory must never block work: without the AI binding, over budget or on
 // any error this returns null and callers fall back to recency ordering.

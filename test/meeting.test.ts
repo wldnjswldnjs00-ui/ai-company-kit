@@ -5,18 +5,18 @@ import { parseJsonLoose } from "../src/brain";
 const DEPTS = [
   { id: "legal", name: "법무팀" },
   { id: "marketing", name: "마케팅팀" },
-  { id: "ops", name: "운영본부" },
+  { id: "ops", name: "운영팀" },
 ];
 
 describe("real all-department meeting", () => {
   it("reads the topic, or notices there isn't one", () => {
-    expect(parseMeetingInstruction("[회의] 판매자 모집", "[회의]")).toEqual({ topic: "판매자 모집", background: "" });
+    expect(parseMeetingInstruction("[회의] 신규 고객 모집", "[회의]")).toEqual({ topic: "신규 고객 모집", background: "" });
     expect(parseMeetingInstruction(`[회의] ${AUTO_AGENDA}\n이번 주 완료 업무`, "[회의]")).toEqual({ topic: null, background: "이번 주 완료 업무" });
   });
 
   it("asks each department for its own agenda when the CEO gave none", () => {
     expect(opinionInstruction(null)).toContain("안건으로 낸다");
-    expect(opinionInstruction("판매자 모집")).toContain("안건: 판매자 모집");
+    expect(opinionInstruction("신규 고객 모집")).toContain("안건: 신규 고객 모집");
   });
 
   it("keeps a department's opinion, dropping asks to itself", () => {

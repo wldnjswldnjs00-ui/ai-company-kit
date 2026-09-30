@@ -9,18 +9,18 @@ import { kstNow } from "../src/company/routines";
 import type { Department } from "../src/db";
 
 const dept = (id: string, name: string): Department => ({ id, name, emoji: "", mission: "m", goals: "", sort: 0, updated_at: "" });
-const DEPTS = [dept("cos", "비서실"), dept("ops", "운영본부"), dept("finance", "재무정산팀"), dept("marketing", "마케팅팀")];
+const DEPTS = [dept("cos", "비서실"), dept("ops", "운영팀"), dept("finance", "재무팀"), dept("marketing", "마케팅팀")];
 
 describe("maskPersonalData", () => {
-  it("masks emails, phone numbers and wallet keys before they reach the LLM", () => {
-    const wallet = "G" + "A".repeat(55);
-    const out = maskPersonalData(`연락처 buyer@example.com, 010-1234-5678, 지갑 ${wallet}`);
-    expect(out).not.toContain("buyer@example.com");
+  it("masks emails, phone numbers and bank accounts before they reach the LLM, but keeps dates", () => {
+    const out = maskPersonalData(`연락처 customer@example.com, 010-1234-5678, 입금 계좌 110-123-456789, 주문일 2026-09-30`);
+    expect(out).not.toContain("customer@example.com");
     expect(out).not.toContain("010-1234-5678");
-    expect(out).not.toContain(wallet);
+    expect(out).not.toContain("110-123-456789");
     expect(out).toContain("[이메일]");
     expect(out).toContain("[전화번호]");
-    expect(out).toContain("[지갑주소]");
+    expect(out).toContain("[계좌번호]");
+    expect(out).toContain("2026-09-30");
   });
 
   it("leaves ordinary numbers and dates alone", () => {
@@ -36,7 +36,7 @@ describe("parseJsonLoose", () => {
 
 describe("splitReport", () => {
   it("takes the summary from the first line", () => {
-    expect(splitReport("요약: 판매자 모집은 3단계로 한다.\n## 결론\n본문")).toEqual({ summary: "판매자 모집은 3단계로 한다.", body: "## 결론\n본문" });
+    expect(splitReport("요약: 신규 고객 모집은 3단계로 한다.\n## 결론\n본문")).toEqual({ summary: "신규 고객 모집은 3단계로 한다.", body: "## 결론\n본문" });
   });
 
   it("tolerates bold markers around the label", () => {
@@ -52,16 +52,16 @@ describe("splitReport", () => {
 
 describe("systemPromptFor", () => {
   it("includes the charter, the job description and the CEO's goals", () => {
-    const p = systemPromptFor({ id: "marketing", name: "마케팅팀", mission: "가치로 알린다", goals: "- 판매자 100명" });
+    const p = systemPromptFor({ id: "marketing", name: "마케팅팀", mission: "가치로 알린다", goals: "- 신규 고객 100명" });
     expect(p).toContain("사실만 말한다");
     expect(p).toContain("콘텐츠 원칙");
-    expect(p).toContain("- 판매자 100명");
+    expect(p).toContain("- 신규 고객 100명");
   });
 });
 
 describe("parseCeoMessage", () => {
   it("sends plain text to 비서실", () => {
-    expect(parseCeoMessage("판매자 모집 계획 세워줘", DEPTS)).toEqual({ kind: "order", department: "cos", instruction: "판매자 모집 계획 세워줘" });
+    expect(parseCeoMessage("신규 고객 모집 계획 세워줘", DEPTS)).toEqual({ kind: "order", department: "cos", instruction: "신규 고객 모집 계획 세워줘" });
   });
 
   it("routes /지시 to the named department, with short names", () => {
@@ -177,7 +177,7 @@ import { parseActionItems } from "../src/company/worker";
 
 describe("meetings", () => {
   it("opens a meeting from /회의 or a spoken '회의 …'", () => {
-    expect(parseCeoMessage("/회의 판매자 모집 전략", DEPTS)).toEqual({ kind: "meeting", topic: "판매자 모집 전략" });
+    expect(parseCeoMessage("/회의 신규 고객 모집 전략", DEPTS)).toEqual({ kind: "meeting", topic: "신규 고객 모집 전략" });
     expect(parseCeoMessage("회의 다음 달 목표", DEPTS)).toEqual({ kind: "meeting", topic: "다음 달 목표" });
     expect(parseCeoMessage("/회의", DEPTS)).toEqual({ kind: "meeting", topic: "(안건 자율)" }); // departments raise the agenda
     // A sentence that merely starts with 회의 as a noun stays an order.
@@ -186,13 +186,20 @@ describe("meetings", () => {
 
   it("turns 실행 항목 lines into proposals for known departments only", () => {
     const body = `## 실행 항목
-- [marketing] 판매자 모집 카드뉴스 | 5장짜리 카드뉴스 초안 | 판매자 문의 증가
+- [marketing] 신규 고객 모집 카드뉴스 | 5장짜리 카드뉴스 초안 | 고객 문의 증가
 - [ops] 금지품목 점검 | 신규 상품 금지품목 재검사 | 사고 예방
 - [unknown] 무시될 항목 | 내용 | 효과
 ## 배운 점
 - 없음`;
     const items = parseActionItems(body, ["marketing", "ops"]);
     expect(items.map((i) => i.department)).toEqual(["marketing", "ops"]);
-    expect(items[0].draft).toMatchObject({ title: "판매자 모집 카드뉴스", proposal: "5장짜리 카드뉴스 초안", impact: "판매자 문의 증가" });
+    expect(items[0].draft).toMatchObject({ title: "신규 고객 모집 카드뉴스", proposal: "5장짜리 카드뉴스 초안", impact: "고객 문의 증가" });
+  });
+});
+
+describe("maskPersonalData — Korean numbers", () => {
+  it("never leaves the tail of an account number, and still tells phones apart", () => {
+    const out = maskPersonalData("계좌 1002-123-456789, 우리 123456-01-123456, 매장 02-123-4567, 휴대폰 010-9876-5432, 날짜 2026-09-30");
+    expect(out).toBe("계좌 [계좌번호], 우리 [계좌번호], 매장 [전화번호], 휴대폰 [전화번호], 날짜 2026-09-30");
   });
 });

@@ -10,8 +10,8 @@ describe("after a result the CEO likes", () => {
   });
 
   it("asks the same department for the finished deliverable, never for outside actions", () => {
-    const text = nextStepInstruction({ title: "판매자 모집 계획", summary: "3단계로 모집", result_md: "## 다음 행동 제안\n- 모집 글 작성" });
-    expect(text).toContain("판매자 모집 계획");
+    const text = nextStepInstruction({ title: "신규 고객 모집 계획", summary: "3단계로 모집", result_md: "## 다음 행동 제안\n- 모집 글 작성" });
+    expect(text).toContain("신규 고객 모집 계획");
     expect(text).toContain("- 모집 글 작성");
     expect(text).toContain("[결재 필요]");
     expect(text).toContain("외부에 게시하는 일은 하지 않는다");
