@@ -5,6 +5,8 @@ import type { Knowledge, CompanyProfile } from "../company/memory";
 import { currentCompany } from "../company/charter";
 import { currentBrand, brandUrl } from "../brand";
 import { KIT_VERSION } from "../version";
+import { Icon, DeptIcon } from "./icons";
+import { MemoryGraph, graphData, MEMGRAPH_CSS } from "./memgraph";
 import { jobFor } from "../company/departments";
 import type { ScoreRow } from "../company/scoreboard";
 import { isPlaybook, playbookTitle } from "../company/playbooks";
@@ -62,6 +64,25 @@ table.score{width:100%;border-collapse:collapse;font-size:14px}table.score th{co
 .timeline{font-size:13px}.timeline div{padding:4px 0;border-left:2px solid var(--line);padding-left:10px}
 .notice{display:block;text-decoration:none;border-color:var(--accent);background:var(--accent-soft);margin-bottom:14px}
 
+.ic{width:1.05em;height:1.05em;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.16em}
+.h-ic{display:inline-flex;align-items:center;gap:8px}h1.h-ic,h3.h-ic{display:flex}
+.dept-ic{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:var(--bg);border:1px solid var(--line);color:var(--ink);flex:none}
+.dept-ic .ic{width:16px;height:16px;vertical-align:0}
+h1 .dept-ic{width:38px;height:38px;border-radius:11px}h1 .dept-ic .ic{width:20px;height:20px}
+.dept-inline{display:inline-flex;align-items:center;gap:6px}.dept-inline .dept-ic{width:22px;height:22px;border-radius:7px}.dept-inline .dept-ic .ic{width:13px;height:13px}
+a.pill .ic,button .ic{margin-right:2px}
+.mark{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;vertical-align:-4px;flex:none}
+.mark .ic{width:12px;height:12px;stroke-width:2.6;vertical-align:0}
+.mark-ok{background:#e7f5ec;color:var(--ok)}.mark-bad{background:#fdecea;color:var(--bad)}.mark-skip{background:var(--bg);color:var(--muted)}
+@media (prefers-color-scheme:dark){.mark-ok{background:#16301f}.mark-bad{background:#3a1a17}}
+.stepno{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--btn);color:var(--btn-ink);font-size:14px;font-weight:700;flex:none}
+.stepno .ic{width:14px;height:14px;stroke-width:2.6;vertical-align:0}.stepno-done{background:var(--ok);color:#fff}
+.swatch{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid var(--line);vertical-align:-2px}
+.brand-wrap{position:relative}
+.brand-edit{position:absolute;right:4px;top:0;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--side-ink);opacity:0;transition:opacity .15s,background .15s}
+.brand-wrap:hover .brand-edit,.brand-edit:focus-visible{opacity:.75}.brand-edit:hover{opacity:1;background:var(--side-on)}
+.brand-edit .ic{width:15px;height:15px;vertical-align:0}
+@media (hover:none){.brand-edit{display:none}}
 .brand .text{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.01em}
 .brand img{display:block;max-height:28px;max-width:170px;width:auto;height:auto;border-radius:8px}
 body:not(.side-white) .brand img.logo-l{background:#fff;padding:4px 8px}
@@ -76,7 +97,7 @@ body.side-white .side{border-right:1px solid var(--line)}
   body.side-white header.top{border-bottom:1px solid var(--line)}
   body.side-white .brand img.logo-d{background:#111;padding:4px 8px}
 }
-`;
+${MEMGRAPH_CSS}`;
 
 const STATUS_LABEL: Record<string, string> = {
   queued: "대기",
@@ -96,20 +117,6 @@ export function kstTime(iso: string | null): string {
   return new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 }
 
-// Line icons (stroke only, 24×24).
-const ICONS: Record<string, string> = {
-  home: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
-  chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
-  list: '<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
-  memory: '<path d="M12 5a3 3 0 0 0-5.9.8A3 3 0 0 0 4 11a3 3 0 0 0 1.5 5.6A3 3 0 0 0 12 19z"/><path d="M12 5a3 3 0 0 1 5.9.8A3 3 0 0 1 20 11a3 3 0 0 1-1.5 5.6A3 3 0 0 1 12 19z"/>',
-  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
-  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
-  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
-};
-const Icon: FC<{ name: string }> = ({ name }) => <svg viewBox="0 0 24 24" aria-hidden="true">{raw(ICONS[name] ?? "")}</svg>;
-
 const NAV: [string, string, string][] = [
   ["/", "조직도", "home"],
   ["/proposals", "제안함", "inbox"],
@@ -118,7 +125,7 @@ const NAV: [string, string, string][] = [
   ["/knowledge", "기억", "memory"],
   ["/knowledge?playbooks=1", "매뉴얼", "book"],
   ["/vision", "비전", "target"],
-  ["/setup", "설치", "link"],
+  ["/setup", "설정", "sliders"],
 ];
 
 // Marks the menu item for the current page (department and report pages
@@ -169,7 +176,14 @@ export const Layout: FC<PropsWithChildren<{ title: string; authed?: boolean }>> 
     <body class={currentBrand().theme === "white" ? "side-white" : ""}>
       <div class="shell">
         <aside class="side">
-          <Brand />
+          <div class="brand-wrap">
+            <Brand />
+            {authed && (
+              <a href="/setup#brand" class="brand-edit" title="로고 바꾸기" aria-label="로고 바꾸기">
+                <Icon name="pencil" />
+              </a>
+            )}
+          </div>
           {authed && (
             <>
               <nav>
@@ -223,7 +237,7 @@ export const TaskList: FC<{ tasks: Task[]; departments: Department[]; showDept?:
         const d = departments.find((x) => x.id === t.department);
         return (
           <li>
-            <StatusPill status={t.status} /> {showDept && d ? `${d.emoji} ${d.name} · ` : ""}
+            <StatusPill status={t.status} /> {showDept && d ? <span class="dept-inline"><DeptIcon id={d.id} />{d.name} · </span> : ""}
             <a href={`/t/${t.id}`}>{t.title}</a>
             <div class="muted">
               {kstTime(t.finished_at ?? t.started_at ?? t.created_at)}
@@ -237,16 +251,16 @@ export const TaskList: FC<{ tasks: Task[]; departments: Department[]; showDept?:
 
 export const OrderForm: FC<{ departments: Department[]; preset?: string }> = ({ departments, preset }) => (
   <form class="order card" method="post" action="/orders">
-    <h3>📝 업무 지시</h3>
+    <h3 class="h-ic"><Icon name="pencil" /> 업무 지시</h3>
     <textarea name="instruction" required placeholder="예: 다음 달 매출 올릴 방법 3가지 찾아줘" />
     <div class="row">
       <select name="department">
-        <option value="cos" selected={!preset}>🧭 비서실에 맡기기 (알맞은 부서로 자동 배분)</option>
+        <option value="cos" selected={!preset}>비서실에 맡기기 (알맞은 부서로 자동 배분)</option>
         {departments
           .filter((d) => d.id !== "cos")
           .map((d) => (
             <option value={d.id} selected={preset === d.id}>
-              {d.emoji} {d.name}에 직접 지시
+              {d.name}에 직접 지시
             </option>
           ))}
       </select>
@@ -268,11 +282,11 @@ export const HomePage: FC<{
   memoryCount: number;
 }> = (p) => (
   <Layout title="조직도">
-    {p.paused && <p class="card" style="color:var(--bad)">⛔ AGENTS_ENABLED=false — 모든 부서가 정지 중입니다.</p>}
+    {p.paused && <p class="card h-ic" style="color:var(--bad)"><Icon name="alert" /> AGENTS_ENABLED=false — 모든 부서가 정지 중입니다.</p>}
     <h1>오늘의 본사</h1>
     {p.pendingProposals > 0 && (
       <a class="card notice" href="/proposals">
-        🚀 <b>결재 대기 제안 {p.pendingProposals}건</b> — 부서들이 스스로 찾은 개선안이 기다리고 있습니다 →
+        <b>결재 대기 제안 {p.pendingProposals}건</b> — 부서들이 스스로 찾은 개선안이 기다리고 있습니다 →
       </a>
     )}
     <div class="card kpis">
@@ -308,8 +322,8 @@ export const HomePage: FC<{
         const state = s.working ? "작업 중" : s.queued ? "대기 업무 있음" : "대기";
         return (
           <a class="card" href={`/d/${d.id}`} style="text-decoration:none">
-            <h3>
-              {d.emoji} {d.name}
+            <h3 class="h-ic">
+              <DeptIcon id={d.id} /> {d.name}
             </h3>
             <div class="muted">{d.mission}</div>
             <div class="stats">
@@ -337,16 +351,16 @@ export const DepartmentPage: FC<{
   memories: Knowledge[];
 }> = ({ dept, departments, open, history, memories }) => (
   <Layout title={dept.name}>
-    <h1>
-      {dept.emoji} {dept.name}
+    <h1 class="h-ic">
+      <DeptIcon id={dept.id} /> {dept.name}
     </h1>
     <p>{dept.mission}</p>
     <form class="card" method="post" action={`/d/${dept.id}/goals`}>
-      <h3>🎯 부서 목표 (CEO 지정)</h3>
+      <h3 class="h-ic"><Icon name="target" /> 부서 목표 (CEO 지정)</h3>
       <p class="muted">여기 적은 목표는 이 부서의 모든 업무에 반영됩니다.</p>
       <textarea name="goals">{dept.goals}</textarea>
       <details style="margin-top:10px">
-        <summary>✏️ 부서 사명과 직무 고치기</summary>
+        <summary>부서 사명과 직무 고치기</summary>
         <p class="muted">직무는 이 부서가 일하는 방식입니다. 우리 회사에 맞게 고치면 결과가 더 좋아집니다. 비우면 기본 직무로 돌아갑니다.</p>
         <label>사명</label>
         <textarea name="mission" style="min-height:60px">{dept.mission}</textarea>
@@ -361,7 +375,7 @@ export const DepartmentPage: FC<{
     <div class="card">
       <TaskList tasks={open} departments={departments} showDept={false} />
     </div>
-    <h2>🧠 이 부서의 기억 (중요한 순)</h2>
+    <h2>이 부서의 기억 (중요한 순)</h2>
     <div class="card">
       <KnowledgeList items={memories} />
       <p class="muted">
@@ -381,7 +395,7 @@ export const TaskPage: FC<{ task: Task; dept?: Department; departments: Departme
   <Layout title={p.task.title}>
     <p class="muted">
       <a href={`/d/${p.task.department}`}>
-        {p.dept?.emoji} {p.dept?.name}
+        {p.dept?.name}
       </a>
       {p.parent && (
         <>
@@ -407,24 +421,24 @@ export const TaskPage: FC<{ task: Task; dept?: Department; departments: Departme
       )}
       {p.task.result_md && (
         <a class="pill" href={`/t/${p.task.id}/report.md`}>
-          📄 보고서 파일 받기
+          <Icon name="file" /> 보고서 파일 받기
         </a>
       )}
       {p.task.result_md && (
         <a class="pill" href={`/t/${p.task.id}/print`}>
-          🖨 인쇄/PDF
+          <Icon name="printer" /> 인쇄/PDF
         </a>
       )}
       {p.task.status === "done" && p.task.result_md && (
         <>
           <form method="post" action={`/t/${p.task.id}/good`}>
-            <button class="ghost">👍 좋아요</button>
+            <button class="ghost h-ic"><Icon name="thumb" /> 좋아요</button>
           </form>
           <form method="post" action={`/t/${p.task.id}/next`}>
             <button>▶️ 다음 단계로</button>
           </form>
           <form method="post" action={`/t/${p.task.id}/apply`}>
-            <button class="ghost">🛠 실제로 적용하기</button>
+            <button class="ghost h-ic"><Icon name="zap" /> 실제로 적용하기</button>
           </form>
         </>
       )}
@@ -453,7 +467,7 @@ export const TaskPage: FC<{ task: Task; dept?: Department; departments: Departme
     )}
     {p.task.status === "done" && p.task.result_md && (
       <form class="card" method="post" action={`/t/${p.task.id}/feedback`} style="margin-top:12px">
-        <h3>💬 피드백 남기기</h3>
+        <h3 class="h-ic"><Icon name="message" /> 피드백 남기기</h3>
         <p class="muted">여기 쓴 말은 이 부서의 최우선 기억이 되어, 앞으로 모든 업무에 반영됩니다.</p>
         <textarea name="feedback" required placeholder="예: 숫자 근거 없이 추측한 부분이 많다. 다음부터 데이터가 없으면 없다고 먼저 말해." />
         <div class="row">
@@ -507,9 +521,9 @@ export const KnowledgeList: FC<{ items: Knowledge[]; departments?: Department[];
         const d = departments?.find((x) => x.id === k.department);
         return (
           <li>
-            {isPlaybook(k.content) ? <span class="pill" style="border-color:var(--accent);color:var(--accent)">📘 대응 매뉴얼</span> : <span class="pill">{KIND_LABEL[k.kind] ?? k.kind}</span>}{" "}
+            {isPlaybook(k.content) ? <span class="pill" style="border-color:var(--accent);color:var(--accent)">대응 매뉴얼</span> : <span class="pill">{KIND_LABEL[k.kind] ?? k.kind}</span>}{" "}
             {k.weight > 1 && <span class="pill">×{k.weight}</span>}{" "}
-            {departments && <span class="muted">{d ? `${d.emoji} ${d.name}` : "🏢 전사"} · </span>}
+            {departments && <span class="muted">{d ? d.name : "전사"} · </span>}
             {isPlaybook(k.content) ? (
               <details style="display:inline">
                 <summary style="display:inline;cursor:pointer;font-weight:600">{playbookTitle(k.content)}</summary>
@@ -540,12 +554,13 @@ export const KnowledgeList: FC<{ items: Knowledge[]; departments?: Department[];
 
 export const KnowledgePage: FC<{ items: Knowledge[]; departments: Department[]; dept?: string; playbooks?: boolean }> = ({ items, departments, dept, playbooks }) => (
   <Layout title="회사의 기억">
-    <h1>🧠 회사의 기억</h1>
+    <h1>회사의 기억</h1>
     <p class="muted">부서가 일하며 배운 점, 사장님의 피드백과 결정입니다. 모든 업무에서 관련 있는 기억을 찾아 참고합니다. 틀린 기억은 "잊게 하기"로 지우세요.</p>
+    {!playbooks && items.length > 0 && <MemoryGraph data={graphData(currentCompany().name, departments, items)} />}
     <div class="row">
-      <a class="pill" href="/knowledge/export.md">📥 전체 기억 파일로 받기</a>
+      <a class="pill" href="/knowledge/export.md"><Icon name="download" /> 전체 기억 파일로 받기</a>
       <form method="post" action="/knowledge/backup">
-        <button class="ghost" style="padding:2px 10px">📨 지금 텔레그램으로 백업</button>
+        <button class="ghost" style="padding:2px 10px"><Icon name="send" /> 지금 텔레그램으로 백업</button>
       </form>
       <span class="muted">매주 일요일 20시에 자동으로 텔레그램 백업이 옵니다.</span>
     </div>
@@ -554,35 +569,35 @@ export const KnowledgePage: FC<{ items: Knowledge[]; departments: Department[]; 
         <option value="">전체</option>
         {departments.map((d) => (
           <option value={d.id} selected={dept === d.id}>
-            {d.emoji} {d.name}
+            {d.name}
           </option>
         ))}
       </select>
       <label class="muted">
-        <input type="checkbox" name="playbooks" value="1" checked={playbooks} /> 📘 대응 매뉴얼만
+        <input type="checkbox" name="playbooks" value="1" checked={playbooks} /> 대응 매뉴얼만
       </label>
       <button class="ghost">보기</button>
     </form>
     {playbooks && (
       <p class="card muted">
-        📘 대응 매뉴얼은 "이런 일이 생기면 이렇게 한다"를 미리 적어 둔 것입니다. 부서마다 매일 정해진 시간(11시부터 한 시간에 한 부서씩)에 대비 훈련을 하며 늘어나고, 비슷한 상황이 실제로 생기면 부서가 먼저 꺼내 봅니다. 제목을 누르면 내용이 펼쳐집니다.
+        대응 매뉴얼은 "이런 일이 생기면 이렇게 한다"를 미리 적어 둔 것입니다. 부서마다 매일 정해진 시간(11시부터 한 시간에 한 부서씩)에 대비 훈련을 하며 늘어나고, 비슷한 상황이 실제로 생기면 부서가 먼저 꺼내 봅니다. 제목을 누르면 내용이 펼쳐집니다.
       </p>
     )}
     {playbooks && (
       <form method="post" action="/knowledge/drill" class="row">
-        <button>🏋️ 지금 전 부서 대비 훈련 시작</button>
+        <button class="h-ic"><Icon name="flag" /> 지금 전 부서 대비 훈련 시작</button>
         <span class="muted">모든 부서가 매뉴얼을 2~3개씩 만듭니다. 무료 두뇌 한도에 따라 몇 시간에 걸쳐 끝날 수 있습니다.</span>
       </form>
     )}
     <form class="card" method="post" action="/knowledge" style="margin-top:12px">
-      <h3>✍️ 직접 가르치기</h3>
+      <h3 class="h-ic"><Icon name="pencil" /> 직접 가르치기</h3>
       <textarea name="content" required placeholder="예: 우리는 할인 경쟁을 하지 않는다. 가격 인하 제안은 하지 않는다." />
       <div class="row">
         <select name="department">
-          <option value="">🏢 전사 공통</option>
+          <option value="">전사 공통</option>
           {departments.map((d) => (
             <option value={d.id} selected={dept === d.id}>
-              {d.emoji} {d.name}
+              {d.name}
             </option>
           ))}
         </select>
@@ -598,10 +613,10 @@ export const KnowledgePage: FC<{ items: Knowledge[]; departments: Department[]; 
 
 export const VisionPage: FC<{ profile: CompanyProfile | null; statusNote: string }> = ({ profile, statusNote }) => (
   <Layout title="비전">
-    <h1>🎯 회사 비전과 현황</h1>
+    <h1>회사 비전과 현황</h1>
     <p class="muted">모든 부서가 모든 업무와 자율 제안에서 이 내용을 기준으로 삼습니다.</p>
     <form class="card" method="post" action="/vision">
-      <h3>📊 지금 회사 현황 (숫자)</h3>
+      <h3 class="h-ic"><Icon name="bars" /> 지금 회사 현황 (숫자)</h3>
       <p class="muted">부서들은 여기 적힌 숫자만 사실로 씁니다. 매주 한 번 고쳐 주면 보고서가 훨씬 정확해집니다.</p>
       <textarea name="statusNote" style="min-height:120px" placeholder="예) 9월 매출 1,850만 원 (8월 1,620만) / 온라인 주문 312건 / 재구매율 34% / 인스타 팔로워 2,100 / 이번 달 고민: 평일 오후 손님이 적음">
         {statusNote}
@@ -620,7 +635,7 @@ export const VisionPage: FC<{ profile: CompanyProfile | null; statusNote: string
 
 export const ProposalsPage: FC<{ proposals: Proposal[]; departments: Department[] }> = ({ proposals, departments }) => (
   <Layout title="제안함">
-    <h1>🚀 자율 제안함</h1>
+    <h1>자율 제안함</h1>
     <p class="muted">부서들이 스스로 찾은 문제와 개선안입니다. 승인하면 그 부서의 업무가 되고, 거절하면 같은 제안을 다시 하지 않습니다.</p>
     {proposals.length === 0 && <p class="card muted">아직 제안이 없습니다. 매일 10시에 각 부서가 자율 점검을 합니다.</p>}
     {proposals.map((p) => {
@@ -631,7 +646,7 @@ export const ProposalsPage: FC<{ proposals: Proposal[]; departments: Department[
           <div class="row" style="margin-top:0">
             <StatusPill status={p.status} />
             <span class="muted">
-              {d?.emoji} {d?.name} · {kstTime(p.created_at)}
+              {d?.name} · {kstTime(p.created_at)}
             </span>
           </div>
           <h3 style="margin-top:8px">{p.title}</h3>
@@ -648,7 +663,7 @@ export const ProposalsPage: FC<{ proposals: Proposal[]; departments: Department[
           )}
           {p.effort && <p class="muted">규모: {p.effort}</p>}
           {p.ceo_note && <p class="muted">CEO 메모: {p.ceo_note}</p>}
-          {p.action && <p class="muted">⚙️ 승인 시 실행: {p.action.type === "hide_product" ? `상품 비노출 (${p.action.productTitle ?? p.action.productId})` : p.action.type}</p>}
+          {p.action && <p class="muted">승인 시 실행: {p.action.type === "hide_product" ? `상품 비노출 (${p.action.productTitle ?? p.action.productId})` : p.action.type}</p>}
           {p.action_result && <p>결과: {p.action_result}</p>}
           {p.task_id && (
             <p>
@@ -659,14 +674,14 @@ export const ProposalsPage: FC<{ proposals: Proposal[]; departments: Department[
             <form method="post" action={`/proposals/${p.id}`}>
               <textarea name="note" placeholder="메모 (선택) — 이유를 남기면 부서가 기억합니다" style="min-height:50px" />
               <div class="row">
-                <button name="decision" value="approve">✅ 승인</button>
+                <button name="decision" value="approve">승인</button>
                 {p.status === "pending" && (
                   <button class="ghost" name="decision" value="hold">
                     ⏸ 보류
                   </button>
                 )}
                 <button class="ghost" name="decision" value="reject">
-                  ❌ 거절
+                  거절
                 </button>
               </div>
             </form>
@@ -683,7 +698,7 @@ export const ScoreboardPage: FC<{ rows: ScoreRow[]; days: number; usage: { provi
   const maxDone = Math.max(1, ...rows.map((r) => r.done));
   return (
     <Layout title="성과">
-      <h1>📊 부서별 성과 점수판</h1>
+      <h1>부서별 성과 점수판</h1>
       <div class="row">
         {[7, 30, 90].map((d) => (
           <a class="pill" href={`/scoreboard?days=${d}`} style={d === days ? "border-color:var(--accent);color:var(--accent)" : ""}>
@@ -709,7 +724,7 @@ export const ScoreboardPage: FC<{ rows: ScoreRow[]; days: number; usage: { provi
             <tr>
               <td>
                 <a href={`/d/${r.department.id}`}>
-                  {r.department.emoji} {r.department.name}
+                  {r.department.name}
                 </a>
                 <div class="bar">
                   <i style={`width:${Math.round((r.done / maxDone) * 100)}%`} />
@@ -732,14 +747,14 @@ export const ScoreboardPage: FC<{ rows: ScoreRow[]; days: number; usage: { provi
       </div>
       <p class="muted">강화: 같은 교훈을 다시 배워 기억이 더 단단해진 횟수 · 피드백: 사장님이 남긴 피드백 수</p>
 
-      <h2>🧠 최근 배운 점</h2>
+      <h2>최근 배운 점</h2>
       <div class="grid">
         {rows
           .filter((r) => r.recentLessons.length)
           .map((r) => (
             <div class="card">
-              <h3>
-                {r.department.emoji} {r.department.name}
+              <h3 class="h-ic">
+                <DeptIcon id={r.department.id} /> {r.department.name}
               </h3>
               <ul style="margin:6px 0 0;padding-left:18px">
                 {r.recentLessons.map((l) => (
@@ -751,7 +766,7 @@ export const ScoreboardPage: FC<{ rows: ScoreRow[]; days: number; usage: { provi
         {rows.every((r) => !r.recentLessons.length) && <p class="muted">이 기간에 새로 배운 점이 아직 없습니다.</p>}
       </div>
 
-      <h2>⚙️ 두뇌 사용량 (최근 {days}일)</h2>
+      <h2>두뇌 사용량 (최근 {days}일)</h2>
       <div class="card">
         {usage.length === 0 ? (
           <p class="muted">사용 기록이 없습니다.</p>
@@ -794,11 +809,11 @@ export const PrintPage: FC<{ task: Task; dept?: Department; reportHtml: string }
     <body>
       <main>
         <div class="tools">
-          <button onclick="window.print()">🖨 인쇄 / PDF로 저장</button>
+          <button onclick="window.print()">인쇄 / PDF로 저장</button>
           <a href={`/t/${task.id}`}>← 돌아가기</a>
         </div>
         <div class="meta">
-          {currentCompany().name} AI 본사 · {dept ? `${dept.emoji} ${dept.name}` : task.department} · {kstTime(task.finished_at ?? task.created_at)}
+          {currentCompany().name} AI 본사 · {dept ? dept.name : task.department} · {kstTime(task.finished_at ?? task.created_at)}
         </div>
         <h1>{task.title}</h1>
         {task.summary && <p class="summary">{task.summary}</p>}

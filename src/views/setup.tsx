@@ -4,21 +4,30 @@ import { helpPrompt, type Check } from "../setupChecks";
 import type { Settings } from "../settings";
 import type { CatalogDepartment } from "../company/departments";
 import { currentBrand, brandUrl, BRAND_KINDS, type BrandKind } from "../brand";
+import { Icon, DeptIcon } from "./icons";
 
-// 설치 화면: five steps on one page. Every step shows ✅/❌, and every ❌
+// 설치 화면: five steps on one page. Every step shows ok/not-ok, and every miss
 // says exactly where to go and what to change — the buyer needs no one.
+
+const Mark: FC<{ state: "ok" | "bad" | "skip" }> = ({ state }) => (
+  <span class={`mark mark-${state}`}>
+    <Icon name={state === "ok" ? "check" : state === "bad" ? "x" : "minus"} />
+  </span>
+);
+
+const Step: FC<{ n: number; done: boolean }> = ({ n, done }) => <span class={`stepno${done ? " stepno-done" : ""}`}>{done ? <Icon name="check" /> : n}</span>;
 
 const Status: FC<{ check: Check }> = ({ check }) => (
   <li style="padding:6px 0">
-    {check.ok ? "✅" : check.optional ? "➖" : "❌"} <b>{check.label}</b>
+    <Mark state={check.ok ? "ok" : check.optional ? "skip" : "bad"} /> <b>{check.label}</b>
     {check.detail && <span class="muted"> · {check.detail}</span>}
     {!check.ok && check.hint && <div class="muted" style="margin:2px 0 0 22px">{check.hint}</div>}
     {!check.ok && !check.optional && (
       <details style="margin:4px 0 0 22px">
-        <summary>🤖 그래도 모르겠으면: 무료 AI 에게 물어보기</summary>
+        <summary>그래도 모르겠으면: 무료 AI 에게 물어보기</summary>
         <p class="muted">아래 글을 복사해서 ChatGPT·Gemini·Claude 같은 무료 AI 에 붙여 넣으세요. 열쇠·토큰은 들어 있지 않습니다. AI 가 달라고 해도 주지 마세요.</p>
         <textarea readonly rows={8} style="width:100%;font-size:13px">{helpPrompt(check)}</textarea>
-        <button type="button" onclick="var t=this.previousElementSibling;t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);this.textContent='✅ 복사됨'">📋 복사하기</button>
+        <button type="button" onclick="var t=this.previousElementSibling;t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);this.textContent='복사됨'">복사하기</button>
       </details>
     )}
   </li>
@@ -41,10 +50,10 @@ const BrandForm: FC = () => {
       <label>왼쪽 메뉴 색</label>
       <div class="row" style="margin-top:4px">
         <label>
-          <input type="radio" name="theme" value="black" checked={b.theme === "black"} /> ⬛ 블랙
+          <input type="radio" name="theme" value="black" checked={b.theme === "black"} /> <span class="swatch" style="background:#161618" /> 블랙
         </label>
         <label>
-          <input type="radio" name="theme" value="white" checked={b.theme === "white"} /> ⬜ 화이트
+          <input type="radio" name="theme" value="white" checked={b.theme === "white"} /> <span class="swatch" style="background:#fff" /> 화이트
         </label>
       </div>
       {BRAND_KINDS.map((kind) => {
@@ -92,16 +101,16 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
   const allDone = [1, 2, 3, 4].every(done);
   return (
     <Layout title="설치">
-      <h1>🛠 설치하기</h1>
-      <p class="muted">위에서부터 차례로 하세요. 모든 단계가 ✅ 가 되면 끝입니다. 막히면 ❌ 아래 설명을 그대로 따라 하고, 그래도 모르겠으면 "무료 AI 에게 물어보기"를 누르세요.</p>
+      <h1>{allDone ? "설정" : "설치하기"}</h1>
+      <p class="muted">위에서부터 차례로 하세요. 모든 단계에 초록 체크가 붙으면 끝입니다. 빨간 표시가 있으면 아래 설명을 그대로 따라 하고, 그래도 모르겠으면 "무료 AI 에게 물어보기"를 누르세요.</p>
       {notice && (
         <p class="card" style={`color:var(${notice.ok ? "--ok" : "--bad"})`}>
-          {notice.ok ? "✅ " : "❌ "}
+          <Mark state={notice.ok ? "ok" : "bad"} />{" "}
           {notice.message}
         </p>
       )}
 
-      <h2>{done(1) ? "✅" : "1️⃣"} 기본 연결</h2>
+      <h2 class="h-ic"><Step n={1} done={done(1)} /> 기본 연결</h2>
       <div class="card">
         <p class="muted">Cloudflare 에 넣은 값 4개와 설치 SQL 을 확인합니다. 값을 고쳤다면 1분 뒤 이 화면을 새로고침하세요.</p>
         <ul class="tasks">
@@ -113,7 +122,7 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
 
       {basicsOk && (
         <>
-          <h2>{done(2) ? "✅" : "2️⃣"} 회사 소개</h2>
+          <h2 class="h-ic"><Step n={2} done={done(2)} /> 회사 소개</h2>
           <form class="card" method="post" action="/setup/company">
             <p class="muted">모든 부서가 이 내용을 보고 일합니다. 구체적일수록 결과가 좋아집니다.</p>
             <label>회사 이름</label>
@@ -143,7 +152,7 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
 
       {basicsOk && done(2) && (
         <>
-          <h2>{done(3) ? "✅" : "3️⃣"} 부서 고르기</h2>
+          <h2 class="h-ic"><Step n={3} done={done(3)} /> 부서 고르기</h2>
           <form class="card" method="post" action="/setup/departments">
             <p class="muted">
               부서가 많을수록 무료 두뇌 사용량도 늘어납니다. 처음에는 추천(미리 체크된 것)으로 시작하고, 나중에 더 추가하세요. 비서실은 항상 있습니다.
@@ -156,9 +165,9 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
                     <label>
                       <input type="checkbox" name="departments" value={d.id} checked={installed.includes(d.id) || (firstTime && !!d.recommended)} disabled={installed.includes(d.id)} />{" "}
                       <b>
-                        {d.emoji} {d.name}
+                        <span class="dept-inline"><DeptIcon id={d.id} />{d.name}</span>
                       </b>
-                      {d.search && <span class="pill">🔎 최신 검색</span>} {d.needsWebsite && <span class="pill">🌐 웹사이트 필요</span>}
+                      {d.search && <span class="pill">최신 검색</span>} {d.needsWebsite && <span class="pill">웹사이트 필요</span>}
                       <div class="muted" style="margin-left:22px">{d.mission}</div>
                     </label>
                   </li>
@@ -176,7 +185,7 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
 
       {basicsOk && done(2) && done(3) && (
         <>
-          <h2>{done(4) ? "✅" : "4️⃣"} 텔레그램 연결</h2>
+          <h2 class="h-ic"><Step n={4} done={done(4)} /> 텔레그램 연결</h2>
           <div class="card">
             <ul class="tasks">
               {step(4).map((c) => (
@@ -191,7 +200,7 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
               </p>
             )}
             <form method="post" action="/setup/telegram" class="row">
-              <button>{done(4) ? "🔄 다시 연결" : "봇 연결하기"}</button>
+              <button>{done(4) ? "다시 연결" : "봇 연결하기"}</button>
             </form>
           </div>
         </>
@@ -199,14 +208,14 @@ export const SetupWizard: FC<{ checks: Check[]; settings: Settings | null; insta
 
       {settings && (
         <>
-          <h2>🎨 로고와 메뉴 색 (선택)</h2>
+          <h2 class="h-ic" id="brand"><Icon name="palette" /> 로고와 메뉴 색 (선택)</h2>
           <BrandForm />
         </>
       )}
 
       {allDone && (
         <>
-          <h2>🎉 완료</h2>
+          <h2 class="h-ic"><Icon name="done" /> 완료</h2>
           <form class="card" method="post" action="/setup/finish">
             <p>모든 준비가 끝났습니다. 이제 텔레그램으로 말하듯 지시하면 됩니다. 예) "이번 달 할 일 정리해줘"</p>
             <button>대시보드로 가기</button>
